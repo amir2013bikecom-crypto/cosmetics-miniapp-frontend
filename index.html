@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Косметика</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --bg: var(--tg-theme-bg-color, #ffffff);
+      --bg2: var(--tg-theme-secondary-bg-color, #f8f8fc);
+      --text: var(--tg-theme-text-color, #1a1a2e);
+      --hint: var(--tg-theme-hint-color, #9898a8);
+      --accent: var(--tg-theme-button-color, #e91e8c);
+      --accent-t: var(--tg-theme-button-text-color, #fff);
+      --radius: 18px;
+      --card-shadow: 0 8px 32px rgba(0,0,0,0.06);
+      --nav-h: 64px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    html, body {
+      height: 100%;
+      background: var(--bg2);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    #app { display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
+
+    /* ── Pages ── */
+    .page { display: none; flex: 1; overflow-y: auto; flex-direction: column; overscroll-behavior: contain; }
+    .page.active { display: flex; }
+    .page-enter { animation: pageIn 0.25s ease forwards; }
+    @keyframes pageIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ── Header ── */
+    .header {
+      background: var(--bg);
+      padding: 18px 18px 12px;
+      position: sticky; top: 0; z-index: 12;
+      border-bottom: 1px solid rgba(0,0,0,.04);
+    }
+    .header-row { display: flex; align-items: center; justify-content: space-between; }
+    .header h1 { font-size: 24px; font-weight: 800; letter-spacing: -0.8px; }
+    .header .sub { font-size: 13px; color: var(--hint); margin-top: 3px; font-weight: 500; }
+    .header-avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), #ff6b6b);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; flex-shrink: 0;
+    }
+
+    /* ── Search ── */
+    .search-wrap {
+      padding: 10px 16px;
+      background: var(--bg);
+      border-bottom: 1px solid rgba(0,0,0,.03);
+      position: sticky; top: 72px; z-index: 11;
+    }
+    .search-inner { position: relative; }
+    .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 16px; }
+    .search-input {
+      width: 100%; background: var(--bg2); border: none; border-radius: 14px;
+      padding: 11px 14px 11px 38px; font-size: 15px; color: var(--text);
+      outline: none; transition: all 0.2s;
+    }
+    .search-input:focus { box-shadow: 0 0 0 2px var(--accent); background: var(--bg); }
+
+    /* ── Chips ── */
+    .chips {
+      display: flex; gap: 8px; padding: 10px 16px;
+      overflow-x: auto; background: var(--bg);
+      border-bottom: 1px solid rgba(0,0,0,.03);
+      position: sticky; top: 127px; z-index: 10;
+    }
+    .chips::-webkit-scrollbar { display: none; }
+    .chip {
+      flex-shrink: 0; padding: 7px 16px; border-radius: 24px; font-size: 13px;
+      font-weight: 600; background: var(--bg2); color: var(--hint);
+      border: 1.5px solid transparent; cursor: pointer; transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .chip.active {
+      background: linear-gradient(135deg, var(--accent), #ff6b9d);
+      color: #fff; border-color: transparent;
+      box-shadow: 0 4px 16px rgba(233,30,140,0.3);
+    }
+
+    /* ── Product Grid ── */
+    .product-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 12px; padding: 14px 14px 90px;
+    }
+
+    .product-card {
+      background: var(--bg); border-radius: var(--radius); overflow: hidden;
+      box-shadow: var(--card-shadow); cursor: pointer;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+      animation: cardIn 0.4s ease both;
+    }
+    .product-card:nth-child(2) { animation-delay: 0.05s; }
+    .product-card:nth-child(3) { animation-delay: 0.1s; }
+    .product-card:nth-child(4) { animation-delay: 0.15s; }
+    .product-card:nth-child(5) { animation-delay: 0.2s; }
+    .product-card:nth-child(6) { animation-delay: 0.25s; }
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(20px) scale(0.96); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .product-card:active { transform: scale(0.96); box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+
+    .product-img {
+      width: 100%; aspect-ratio: 1; background: linear-gradient(135deg, var(--bg2), #f0e8ff);
+      display: flex; align-items: center; justify-content: center; font-size: 52px;
+      position: relative; overflow: hidden;
+    }
+    .product-img img { width: 100%; height: 100%; object-fit: cover; }
+    .product-img::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(to bottom, transparent 60%, rgba(0,0,0,0.06));
+    }
+
+    .product-info { padding: 12px; }
+    .product-name {
+      font-size: 13px; font-weight: 700; line-height: 1.3; margin-bottom: 3px;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      overflow: hidden; min-height: 34px;
+    }
+    .product-cat { font-size: 11px; color: var(--hint); margin-bottom: 10px; font-weight: 500; }
+    .product-row { display: flex; align-items: center; justify-content: space-between; }
+    .product-price { font-size: 15px; font-weight: 800; color: var(--text); }
+
+    .btn-add {
+      background: linear-gradient(135deg, var(--accent), #ff6b9d);
+      color: #fff; border: none; border-radius: 10px;
+      width: 32px; height: 32px; font-size: 20px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all 0.15s;
+      box-shadow: 0 4px 12px rgba(233,30,140,0.35);
+    }
+    .btn-add:active { transform: scale(0.82); }
+
+    /* ── Bottom Nav ── */
+    .bottom-nav {
+      display: flex; background: var(--bg);
+      border-top: 1px solid rgba(0,0,0,.05);
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
+      padding-bottom: env(safe-area-inset-bottom);
+      height: calc(var(--nav-h) + env(safe-area-inset-bottom));
+    }
+    .nav-btn {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 4px; padding: 8px 0;
+      border: none; background: none; color: var(--hint);
+      font-size: 11px; font-weight: 500; cursor: pointer; position: relative;
+      transition: color 0.2s;
+    }
+    .nav-btn.active { color: var(--accent); }
+    .nav-btn svg { width: 22px; height: 22px; transition: transform 0.2s; }
+    .nav-btn.active svg { transform: scale(1.1); }
+    .nav-indicator {
+      position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+      width: 32px; height: 3px; background: var(--accent); border-radius: 0 0 4px 4px;
+      opacity: 0; transition: opacity 0.2s;
+    }
+    .nav-btn.active .nav-indicator { opacity: 1; }
+
+    .badge {
+      position: absolute; top: 4px; right: calc(50% - 18px);
+      background: #ff3b30; color: #fff; border-radius: 10px;
+      min-width: 18px; height: 18px; font-size: 10px; font-weight: 700;
+      display: none; align-items: center; justify-content: center;
+      padding: 0 5px; border: 2px solid var(--bg);
+      animation: badgePop 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+    }
+    .badge.show { display: flex; }
+    @keyframes badgePop { from { transform: scale(0); } to { transform: scale(1); } }
+
+    /* ── Cart ── */
+    .cart-list { flex: 1; overflow-y: auto; padding: 14px 14px 170px; }
+
+    .cart-item {
+      background: var(--bg); border-radius: var(--radius); padding: 14px;
+      display: flex; gap: 14px; align-items: center; margin-bottom: 10px;
+      box-shadow: var(--card-shadow);
+      animation: slideIn 0.3s ease both;
+    }
+    @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+
+    .cart-img {
+      width: 70px; height: 70px; border-radius: 12px;
+      background: linear-gradient(135deg, var(--bg2), #f0e8ff);
+      flex-shrink: 0; display: flex; align-items: center;
+      justify-content: center; font-size: 32px; overflow: hidden;
+    }
+    .cart-details { flex: 1; min-width: 0; }
+    .cart-name { font-size: 15px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cart-price { font-size: 14px; color: var(--hint); font-weight: 500; margin-top: 2px; }
+    .qty-ctrl { display: flex; align-items: center; gap: 14px; margin-top: 10px; }
+    .qty-btn {
+      width: 30px; height: 30px; border-radius: 10px; border: none;
+      background: var(--bg2); font-size: 18px; font-weight: 700;
+      cursor: pointer; color: var(--text);
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    .qty-btn:active { background: var(--accent); color: #fff; transform: scale(0.9); }
+    .qty-val { font-size: 16px; font-weight: 800; min-width: 24px; text-align: center; }
+
+    .cart-footer {
+      position: fixed; bottom: var(--nav-h); left: 0; right: 0;
+      background: var(--bg); border-top: 1px solid rgba(0,0,0,.05);
+      padding: 16px; z-index: 15;
+      box-shadow: 0 -8px 24px rgba(0,0,0,.06);
+    }
+    .total-row {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 12px;
+    }
+    .total-label { font-size: 15px; color: var(--hint); font-weight: 500; }
+    .total-amount { font-size: 22px; font-weight: 800; }
+    .btn-order {
+      width: 100%; padding: 16px;
+      background: linear-gradient(135deg, var(--accent), #ff6b9d);
+      color: #fff; border: none; border-radius: var(--radius);
+      font-size: 16px; font-weight: 700; cursor: pointer;
+      box-shadow: 0 8px 24px rgba(233,30,140,0.35);
+      transition: all 0.2s;
+    }
+    .btn-order:active { transform: scale(0.97); filter: brightness(0.92); }
+
+    .empty {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 14px; color: var(--hint); padding: 40px;
+    }
+    .empty .icon { font-size: 72px; filter: grayscale(0.2); }
+    .empty h3 { font-size: 18px; font-weight: 700; color: var(--text); }
+    .empty p { font-size: 14px; text-align: center; line-height: 1.5; }
+
+    /* ── Orders ── */
+    .orders-list { padding: 14px 14px 90px; display: flex; flex-direction: column; gap: 12px; }
+
+    .order-card {
+      background: var(--bg); border-radius: var(--radius); overflow: hidden;
+      box-shadow: var(--card-shadow);
+      animation: cardIn 0.3s ease both;
+    }
+    .order-card-header {
+      padding: 14px 16px;
+      background: linear-gradient(135deg, rgba(233,30,140,0.06), rgba(255,107,157,0.04));
+      border-bottom: 1px solid rgba(0,0,0,.04);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .order-id { font-size: 15px; font-weight: 700; }
+    .order-date { font-size: 12px; color: var(--hint); }
+    .order-body { padding: 14px 16px; }
+    .order-items { font-size: 13px; color: var(--hint); line-height: 1.6; margin-bottom: 10px; }
+    .order-footer2 { display: flex; justify-content: space-between; align-items: center; }
+    .order-total { font-size: 17px; font-weight: 800; }
+
+    .status-badge {
+      padding: 5px 12px; border-radius: 24px; font-size: 12px; font-weight: 700;
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .status-pending   { background: rgba(255,193,7,0.15); color: #b77c00; }
+    .status-paid      { background: rgba(23,162,184,0.15); color: #117a8b; }
+    .status-shipped   { background: rgba(0,123,255,0.15); color: #0056b3; }
+    .status-delivered { background: rgba(40,167,69,0.15); color: #1e7e34; }
+    .status-cancelled { background: rgba(220,53,69,0.15); color: #bd2130; }
+
+    /* ── Modal ── */
+    .modal-backdrop {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.55); z-index: 100;
+      align-items: flex-end; backdrop-filter: blur(4px);
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal-backdrop.open .modal { animation: sheetUp 0.35s cubic-bezier(0.1, 0.76, 0.55, 0.94) forwards; }
+    .modal-backdrop.closing .modal { animation: sheetDown 0.25s ease forwards; }
+    @keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    @keyframes sheetDown { from { transform: translateY(0); } to { transform: translateY(100%); } }
+
+    .modal {
+      background: var(--bg); border-radius: 24px 24px 0 0;
+      padding: 0 0 calc(24px + env(safe-area-inset-bottom)); width: 100%;
+    }
+    .modal-handle {
+      width: 36px; height: 4px; background: rgba(0,0,0,.12);
+      border-radius: 2px; margin: 12px auto 20px;
+    }
+    .modal-content { padding: 0 20px; }
+    .modal h2 { font-size: 22px; font-weight: 800; margin-bottom: 20px; letter-spacing: -0.5px; }
+
+    .form-group { margin-bottom: 16px; }
+    .form-label { font-size: 13px; font-weight: 600; color: var(--hint); margin-bottom: 8px; display: block; }
+    .form-input {
+      width: 100%; border: 1.5px solid rgba(0,0,0,.08); border-radius: 14px;
+      padding: 13px 16px; font-size: 15px; background: var(--bg2);
+      color: var(--text); outline: none; font-family: inherit;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(233,30,140,0.12); }
+    .form-textarea { resize: none; min-height: 90px; }
+
+    .modal-btns { display: flex; gap: 12px; margin-top: 20px; }
+    .btn-cancel {
+      flex: 1; padding: 15px; background: var(--bg2); border: none;
+      border-radius: var(--radius); font-size: 15px; font-weight: 600;
+      cursor: pointer; color: var(--text); transition: opacity 0.2s;
+    }
+    .btn-cancel:active { opacity: 0.7; }
+    .btn-confirm {
+      flex: 2; padding: 15px;
+      background: linear-gradient(135deg, var(--accent), #ff6b9d);
+      color: #fff; border: none; border-radius: var(--radius);
+      font-size: 15px; font-weight: 700; cursor: pointer;
+      box-shadow: 0 6px 20px rgba(233,30,140,0.35);
+      transition: all 0.2s;
+    }
+    .btn-confirm:active { transform: scale(0.97); }
+    .btn-confirm:disabled { opacity: 0.6; }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed; bottom: 80px; left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(28,28,30,0.92); backdrop-filter: blur(16px);
+      color: #fff; border-radius: 24px; padding: 12px 24px;
+      font-size: 14px; font-weight: 600; opacity: 0;
+      transition: all .3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+      z-index: 200; pointer-events: none; white-space: nowrap;
+      box-shadow: 0 8px 24px rgba(0,0,0,.2);
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ── Spinner ── */
+    .spin {
+      width: 32px; height: 32px; border: 3px solid var(--bg2);
+      border-top-color: var(--accent); border-radius: 50%;
+      animation: spin .6s linear infinite; margin: auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-wrap { grid-column: span 2; padding: 60px 0; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+    .loading-text { font-size: 14px; color: var(--hint); font-weight: 500; }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- КАТАЛОГ -->
+  <div class="page active" id="page-catalog">
+    <div class="header">
+      <div class="header-row">
+        <div>
+          <h1>💄 Косметика</h1>
+          <div class="sub" id="user-greeting">Загрузка...</div>
+        </div>
+        <div class="header-avatar">✨</div>
+      </div>
+    </div>
+    <div class="search-wrap">
+      <div class="search-inner">
+        <span class="search-icon">🔍</span>
+        <input class="search-input" id="search-input" type="search" placeholder="Поиск товаров..." />
+      </div>
+    </div>
+    <div class="chips" id="categories-chips">
+      <button class="chip active" onclick="filterCategory('', this)">✨ Все</button>
+    </div>
+    <div id="products-container" class="product-grid">
+      <div class="loading-wrap"><div class="spin"></div><span class="loading-text">Загружаем товары...</span></div>
+    </div>
+  </div>
+
+  <!-- КОРЗИНА -->
+  <div class="page" id="page-cart">
+    <div class="header"><h1>🛒 Корзина</h1></div>
+    <div id="cart-content" style="display:flex;flex-direction:column;flex:1;overflow:hidden;padding-bottom:var(--nav-h)">
+      <div style="padding:60px 0;text-align:center"><div class="spin"></div></div>
+    </div>
+  </div>
+
+  <!-- ЗАКАЗЫ -->
+  <div class="page" id="page-orders">
+    <div class="header"><h1>📦 Мои заказы</h1></div>
+    <div id="orders-container" class="orders-list">
+      <div style="padding:60px 0;text-align:center"><div class="spin"></div></div>
+    </div>
+  </div>
+
+  <!-- НАВИГАЦИЯ -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-page="catalog" onclick="navigate('catalog')">
+      <div class="nav-indicator"></div>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>
+      Каталог
+    </button>
+    <button class="nav-btn" data-page="cart" onclick="navigate('cart')">
+      <div class="nav-indicator"></div>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+      <span class="badge" id="cart-badge">0</span>
+      Корзина
+    </button>
+    <button class="nav-btn" data-page="orders" onclick="navigate('orders')">
+      <div class="nav-indicator"></div>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      Заказы
+    </button>
+  </nav>
+</div>
+
+<!-- CHECKOUT MODAL -->
+<div class="modal-backdrop" id="checkout-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-content">
+      <h2>Оформление заказа</h2>
+      <div class="form-group">
+        <label class="form-label">📞 Номер телефона</label>
+        <input type="tel" id="phone" class="form-input" placeholder="+7 (999) 999-99-99" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">📍 Адрес доставки</label>
+        <textarea id="delivery-address" class="form-input form-textarea" placeholder="Город, улица, дом, квартира..."></textarea>
+      </div>
+      <div class="modal-btns">
+        <button class="btn-cancel" onclick="closeCheckout()">Отмена</button>
+        <button class="btn-confirm" id="confirm-btn" onclick="confirmOrder()">Оформить</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const tg = window.Telegram?.WebApp;
+tg?.ready();
+tg?.expand();
+const INIT_DATA = tg?.initData || '';
+const API_URL = 'https://cosmetics-marketplace-production.up.railway.app';
+
+const EMOJI = ['🌸','💄','🧴','🌿','✨','💅','🪷','🧖','🌺','💆'];
+let cart = { items: [], total: 0 };
+let selectedCategory = '';
+let searchTimer = null;
+
+async function api(method, path, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json', 'X-Init-Data': INIT_DATA } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(API_URL + '/api/v1' + path, opts);
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || 'Ошибка сервера'); }
+  if (res.status === 204) return null;
+  return res.json();
+}
+
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+function navigate(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  const pageEl = document.getElementById('page-' + page);
+  pageEl.classList.add('active', 'page-enter');
+  setTimeout(() => pageEl.classList.remove('page-enter'), 300);
+  document.querySelector(`[data-page="${page}"]`).classList.add('active');
+  if (page === 'cart') loadCart();
+  if (page === 'orders') loadOrders();
+}
+
+async function init() {
+  const user = tg?.initDataUnsafe?.user;
+  const name = user?.first_name || '';
+  document.getElementById('user-greeting').textContent = name ? `Привет, ${name}! 👋` : 'Добро пожаловать! ✨';
+  if (name) {
+    document.querySelector('.header-avatar').textContent = name[0].toUpperCase();
+  }
+  await loadCategories();
+  await loadProducts();
+  await loadCartBadge();
+  document.getElementById('search-input').addEventListener('input', e => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => loadProducts(e.target.value), 400);
+  });
+}
+
+async function loadCategories() {
+  try {
+    const cats = await api('GET', '/categories/');
+    const chips = document.getElementById('categories-chips');
+    const catEmoji = ['✨','🧴','💄','🌸'];
+    chips.innerHTML = '<button class="chip active" onclick="filterCategory(\'\', this)">✨ Все</button>';
+    cats.forEach((cat, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'chip';
+      btn.textContent = (catEmoji[i] || '💫') + ' ' + cat.name;
+      btn.onclick = () => filterCategory(cat.id, btn);
+      chips.appendChild(btn);
+    });
+  } catch(e) {}
+}
+
+function filterCategory(id, btn) {
+  selectedCategory = id;
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  loadProducts(document.getElementById('search-input').value);
+}
+
+async function loadProducts(search = '') {
+  const container = document.getElementById('products-container');
+  container.innerHTML = '<div class="loading-wrap"><div class="spin"></div><span class="loading-text">Загружаем...</span></div>';
+  try {
+    let url = '/products/?limit=40';
+    if (selectedCategory) url += `&category_id=${selectedCategory}`;
+    if (search) url += `&search=${encodeURIComponent(search)}`;
+    const products = await api('GET', url);
+    if (!products?.length) {
+      container.innerHTML = '<div class="loading-wrap"><span style="font-size:48px">🔍</span><span class="loading-text">Товаров не найдено</span></div>';
+      return;
+    }
+    container.innerHTML = products.map((p, i) => `
+      <div class="product-card" onclick="openProduct(${p.id}, '${p.name.replace(/'/g,"\\'")}', '${(p.description||'').replace(/'/g,"\\'")}', ${p.price})">
+        <div class="product-img">${p.image_url ? `<img src="${p.image_url}" loading="lazy"/>` : EMOJI[i % EMOJI.length]}</div>
+        <div class="product-info">
+          <div class="product-name">${p.name}</div>
+          <div class="product-cat">${p.category?.name || ''}</div>
+          <div class="product-row">
+            <span class="product-price">${Number(p.price).toLocaleString('ru-RU')} ₽</span>
+            <button class="btn-add" onclick="event.stopPropagation();addToCart(${p.id})">+</button>
+          </div>
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    container.innerHTML = '<div class="loading-wrap"><span style="font-size:48px">😕</span><span class="loading-text">Ошибка загрузки</span></div>';
+  }
+}
+
+function openProduct(id, name, desc, price) {
+  tg?.showPopup({
+    title: name,
+    message: (desc || 'Описание отсутствует') + `\n\n💰 Цена: ${Number(price).toLocaleString('ru-RU')} ₽`,
+    buttons: [{ id: 'add', type: 'default', text: '🛒 Добавить в корзину' }, { type: 'cancel', text: 'Закрыть' }]
+  }, btn => { if (btn === 'add') addToCart(id); });
+}
+
+async function addToCart(productId) {
+  try {
+    await api('POST', '/cart/', { product_id: productId, quantity: 1 });
+    tg?.HapticFeedback?.impactOccurred('light');
+    showToast('✓ Добавлено в корзину');
+    loadCartBadge();
+  } catch(e) { showToast(e.message); }
+}
+
+async function loadCartBadge() {
+  try {
+    cart = await api('GET', '/cart/');
+    const total = cart.items?.reduce((s, i) => s + i.quantity, 0) || 0;
+    const badge = document.getElementById('cart-badge');
+    badge.textContent = total;
+    badge.classList.toggle('show', total > 0);
+  } catch(e) {}
+}
+
+async function loadCart() {
+  const c = document.getElementById('cart-content');
+  c.innerHTML = '<div style="padding:60px 0;text-align:center"><div class="spin"></div></div>';
+  try {
+    cart = await api('GET', '/cart/');
+    if (!cart.items?.length) {
+      c.innerHTML = '<div class="empty"><span class="icon">🛒</span><h3>Корзина пуста</h3><p>Добавьте товары из каталога</p></div>';
+      return;
+    }
+    c.innerHTML = `
+      <div class="cart-list">${cart.items.map((item, i) => `
+        <div class="cart-item">
+          <div class="cart-img">${item.product.image_url ? `<img src="${item.product.image_url}" style="width:100%;height:100%;object-fit:cover"/>` : EMOJI[i%EMOJI.length]}</div>
+          <div class="cart-details">
+            <div class="cart-name">${item.product.name}</div>
+            <div class="cart-price">${Number(item.product.price).toLocaleString('ru-RU')} ₽</div>
+            <div class="qty-ctrl">
+              <button class="qty-btn" onclick="changeQty(${item.product.id}, ${item.quantity-1})">−</button>
+              <span class="qty-val">${item.quantity}</span>
+              <button class="qty-btn" onclick="changeQty(${item.product.id}, ${item.quantity+1})">+</button>
+            </div>
+          </div>
+        </div>`).join('')}
+      </div>
+      <div class="cart-footer">
+        <div class="total-row">
+          <span class="total-label">Итого</span>
+          <span class="total-amount">${Number(cart.total).toLocaleString('ru-RU')} ₽</span>
+        </div>
+        <button class="btn-order" onclick="openCheckout()">Оформить заказ 🎀</button>
+      </div>`;
+    loadCartBadge();
+  } catch(e) {
+    c.innerHTML = '<div class="empty"><span class="icon">😕</span><h3>Ошибка</h3><p>Не удалось загрузить корзину</p></div>';
+  }
+}
+
+async function changeQty(productId, newQty) {
+  try {
+    if (newQty <= 0) await api('DELETE', `/cart/${productId}`);
+    else await api('PATCH', `/cart/${productId}`, { quantity: newQty });
+    await loadCart();
+  } catch(e) { showToast(e.message); }
+}
+
+function openCheckout() {
+  const modal = document.getElementById('checkout-modal');
+  modal.style.display = 'flex';
+  modal.classList.add('open');
+}
+
+function closeCheckout() {
+  const modal = document.getElementById('checkout-modal');
+  modal.classList.add('closing');
+  setTimeout(() => {
+    modal.classList.remove('open', 'closing');
+    modal.style.display = 'none';
+  }, 250);
+}
+
+async function confirmOrder() {
+  const phone = document.getElementById('phone').value.trim();
+  const address = document.getElementById('delivery-address').value.trim();
+  if (!phone) { showToast('Введите номер телефона'); return; }
+  if (!address) { showToast('Введите адрес доставки'); return; }
+  const btn = document.getElementById('confirm-btn');
+  btn.disabled = true; btn.textContent = '⏳ Оформляем...';
+  try {
+    const order = await api('POST', '/orders/', { delivery_address: address, phone });
+    closeCheckout();
+    tg?.HapticFeedback?.notificationOccurred('success');
+    showToast(`🎉 Заказ #${order.id} оформлен!`);
+    document.getElementById('delivery-address').value = '';
+    document.getElementById('phone').value = '';
+    setTimeout(() => navigate('orders'), 500);
+  } catch(e) { showToast(e.message); }
+  finally { btn.disabled = false; btn.textContent = 'Оформить'; }
+}
+
+const STATUS = {
+  pending:   { label: 'Ожидает', icon: '⏳' },
+  paid:      { label: 'Оплачен', icon: '💳' },
+  shipped:   { label: 'В пути', icon: '🚚' },
+  delivered: { label: 'Доставлен', icon: '✅' },
+  cancelled: { label: 'Отменён', icon: '❌' }
+};
+
+async function loadOrders() {
+  const c = document.getElementById('orders-container');
+  c.innerHTML = '<div style="padding:60px 0;text-align:center"><div class="spin"></div></div>';
+  try {
+    const orders = await api('GET', '/orders/');
+    if (!orders?.length) {
+      c.innerHTML = '<div class="empty"><span class="icon">📦</span><h3>Заказов пока нет</h3><p>Сделайте первый заказ в каталоге!</p></div>';
+      return;
+    }
+    c.innerHTML = orders.map(o => {
+      const s = STATUS[o.status] || { label: o.status, icon: '📦' };
+      return `
+        <div class="order-card">
+          <div class="order-card-header">
+            <div>
+              <div class="order-id">Заказ #${o.id}</div>
+              <div class="order-date">${new Date(o.created_at).toLocaleDateString('ru-RU', { day:'numeric', month:'long' })}</div>
+            </div>
+            <span class="status-badge status-${o.status}">${s.icon} ${s.label}</span>
+          </div>
+          <div class="order-body">
+            <div class="order-items">${o.items.map(i => `${i.product.name} × ${i.quantity}`).join('<br>')}</div>
+            <div class="order-footer2">
+              <span class="order-total">${Number(o.total_price).toLocaleString('ru-RU')} ₽</span>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  } catch(e) {
+    c.innerHTML = '<div class="empty"><span class="icon">😕</span><h3>Ошибка</h3><p>Не удалось загрузить заказы</p></div>';
+  }
+}
+
+init();
+</script>
+</body>
+</html>
