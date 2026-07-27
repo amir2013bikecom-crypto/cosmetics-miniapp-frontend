@@ -1,1268 +1,299 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Мир Косметики</title>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <style>
-    :root {
-      --primary: #ff6b8a;
-      --primary-light: #ffd1dc;
-      --dark: #2d3436;
-      --light: #f8f9fa;
-      --white: #ffffff;
-      --shadow: 0 4px 12px rgba(0,0,0,0.08);
-      --radius: 16px;
-      --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-    }
-    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      background: var(--light);
-      color: var(--dark);
-      line-height: 1.5;
-      padding-bottom: 80px;
-      overflow-x: hidden;
-    }
-    .app-container { max-width: 100%; overflow-x: hidden; }
-    .header {
-      background: linear-gradient(135deg, var(--primary) 0%, #ff8fa3 100%);
-      color: white;
-      padding: 20px;
-      text-align: center;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      box-shadow: 0 2px 10px rgba(255,107,138,0.3);
-    }
-    .header h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
-    .header p { font-size: 14px; opacity: 0.9; margin-top: 4px; }
-    .search-container { padding: 16px; background: white; position: sticky; top: 76px; z-index: 90; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-    .search-input {
-      width: 100%;
-      padding: 12px 16px;
-      border: 2px solid var(--primary-light);
-      border-radius: 24px;
-      font-size: 16px;
-      outline: none;
-      transition: var(--transition);
-      background: var(--light);
-    }
-    .search-input:focus { border-color: var(--primary); background: white; box-shadow: 0 0 0 3px rgba(255,107,138,0.1); }
-    .categories { display: flex; overflow-x: auto; padding: 12px 16px; gap: 10px; scrollbar-width: none; -ms-overflow-style: none; background: white; }
-    .categories::-webkit-scrollbar { display: none; }
-    .category-btn {
-      padding: 8px 16px;
-      border-radius: 20px;
-      border: 1px solid #e0e0e0;
-      background: white;
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--dark);
-      white-space: nowrap;
-      cursor: pointer;
-      transition: var(--transition);
-    }
-    .category-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
-    .products-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 16px; }
-    .product-card {
-      background: white;
-      border-radius: var(--radius);
-      overflow: hidden;
-      box-shadow: var(--shadow);
-      transition: var(--transition);
-      cursor: pointer;
-      position: relative;
-    }
-    .product-card:active { transform: scale(0.98); }
-    .product-image {
-      width: 100%;
-      height: 160px;
-      object-fit: cover;
-      background: linear-gradient(45deg, #f5f5f5, #e0e0e0);
-    }
-    .product-info { padding: 12px; }
-    .product-name { font-size: 14px; font-weight: 600; margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-    .product-price { font-size: 16px; font-weight: 700; color: var(--primary); }
-    .product-stock { font-size: 12px; color: #666; margin-top: 4px; }
-    .product-rating { font-size: 12px; color: #ffa500; margin-top: 2px; }
-    .wishlist-btn {
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.9);
-      border: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      font-size: 18px;
-      z-index: 10;
-    }
-    .wishlist-btn.active { color: var(--primary); }
-    .add-to-cart-btn {
-      width: 100%;
-      padding: 10px;
-      background: var(--primary);
-      color: white;
-      border: none;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: var(--transition);
-    }
-    .add-to-cart-btn:active { background: #e05575; }
-    .add-to-cart-btn:disabled { background: #ccc; cursor: not-allowed; }
-    .bottom-nav {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      display: flex;
-      justify-content: space-around;
-      background: white;
-      padding: 12px 0;
-      box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
-      z-index: 100;
-      border-top: 1px solid #f0f0f0;
-    }
-    .nav-item {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      font-size: 12px;
-      color: #999;
-      cursor: pointer;
-      transition: var(--transition);
-      position: relative;
-    }
-    .nav-item.active { color: var(--primary); }
-    .nav-item svg { width: 24px; height: 24px; margin-bottom: 4px; }
-    .cart-badge {
-      position: absolute;
-      top: -4px;
-      right: 8px;
-      background: var(--primary);
-      color: white;
-      font-size: 10px;
-      font-weight: 700;
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .modal-overlay {
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.5);
-      z-index: 200;
-      display: none;
-      align-items: flex-end;
-      justify-content: center;
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-    .modal-overlay.active { display: flex; opacity: 1; }
-    .modal-content {
-      background: white;
-      width: 100%;
-      max-height: 85vh;
-      border-radius: 24px 24px 0 0;
-      overflow-y: auto;
-      transform: translateY(100%);
-      transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
-      padding-bottom: 24px;
-    }
-    .modal-overlay.active .modal-content { transform: translateY(0); }
-    .modal-image { width: 100%; height: 300px; object-fit: cover; }
-    .modal-info { padding: 24px; }
-    .modal-title { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
-    .modal-price { font-size: 24px; font-weight: 700; color: var(--primary); margin-bottom: 16px; }
-    .modal-desc { font-size: 15px; color: #555; line-height: 1.6; margin-bottom: 24px; }
-    .quantity-selector { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
-    .quantity-btn {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      border: 1px solid #e0e0e0;
-      background: white;
-      font-size: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-    }
-    .quantity-value { font-size: 18px; font-weight: 600; min-width: 30px; text-align: center; }
-    .add-btn {
-      width: 100%;
-      padding: 16px;
-      background: var(--primary);
-      color: white;
-      border: none;
-      border-radius: 12px;
-      font-size: 16px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: var(--transition);
-    }
-    .add-btn:active { background: #e05575; }
-    .cart-item {
-      display: flex;
-      gap: 16px;
-      padding: 16px;
-      background: white;
-      margin-bottom: 12px;
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-    }
-    .cart-item-image { width: 80px; height: 80px; object-fit: cover; border-radius: 12px; }
-    .cart-item-info { flex: 1; }
-    .cart-item-name { font-weight: 600; margin-bottom: 4px; }
-    .cart-item-price { color: var(--primary); font-weight: 700; }
-    .cart-item-actions { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
-    .cart-quantity-btn {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      border: 1px solid #e0e0e0;
-      background: white;
-      cursor: pointer;
-    }
-    .remove-btn { color: #ff6b6b; font-size: 13px; margin-left: auto; cursor: pointer; }
-    .cart-total {
-      padding: 20px;
-      background: white;
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      margin: 16px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .cart-total-label { font-size: 18px; font-weight: 700; }
-    .cart-total-price { font-size: 22px; font-weight: 700; color: var(--primary); }
-    .checkout-btn {
-      margin: 0 16px 16px;
-      width: calc(100% - 32px);
-      padding: 16px;
-      background: var(--primary);
-      color: white;
-      border: none;
-      border-radius: 12px;
-      font-size: 16px;
-      font-weight: 700;
-      cursor: pointer;
-    }
-    .promo-input {
-      width: calc(100% - 32px);
-      margin: 0 16px 12px;
-      padding: 14px;
-      border: 2px solid #e0e0e0;
-      border-radius: 12px;
-      font-size: 16px;
-    }
-    .promo-btn {
-      margin: 0 16px 16px;
-      width: calc(100% - 32px);
-      padding: 12px;
-      background: white;
-      color: var(--primary);
-      border: 2px solid var(--primary);
-      border-radius: 12px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    .discount-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 8px 16px;
-      color: #28a745;
-      font-weight: 600;
-    }
-    .empty-state {
-      text-align: center;
-      padding: 60px 20px;
-      color: #999;
-    }
-    .empty-state svg { width: 64px; height: 64px; margin-bottom: 16px; opacity: 0.3; }
-    .order-card {
-      background: white;
-      border-radius: var(--radius);
-      padding: 16px;
-      margin: 12px 16px;
-      box-shadow: var(--shadow);
-    }
-    .order-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
-    .order-id { font-weight: 700; }
-    .order-status {
-      padding: 4px 12px;
-      border-radius: 12px;
-      font-size: 12px;
-      font-weight: 600;
-    }
-    .status-pending { background: #fff3cd; color: #856404; }
-    .status-paid { background: #d4edda; color: #155724; }
-    .status-shipped { background: #cce5ff; color: #004085; }
-    .status-delivered { background: #d4edda; color: #155724; }
-    .status-cancelled { background: #f8d7da; color: #721c24; }
-    .order-items { font-size: 14px; color: #666; margin-top: 8px; }
-    .order-total { font-weight: 700; color: var(--primary); margin-top: 8px; }
-    .hidden { display: none !important; }
-    .loading { text-align: center; padding: 40px; color: #999; }
-    .spinner {
-      width: 40px;
-      height: 40px;
-      border: 3px solid var(--primary-light);
-      border-top-color: var(--primary);
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-      margin: 0 auto 16px;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .section-title { font-size: 20px; font-weight: 700; padding: 16px; }
-    .back-btn {
-      padding: 12px 16px;
-      background: none;
-      border: none;
-      color: var(--primary);
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .form-group { margin-bottom: 16px; padding: 0 16px; }
-    .form-label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; }
-    .form-input {
-      width: 100%;
-      padding: 14px;
-      border: 2px solid #e0e0e0;
-      border-radius: 12px;
-      font-size: 16px;
-      outline: none;
-      transition: var(--transition);
-    }
-    .form-input:focus { border-color: var(--primary); }
-    textarea.form-input { min-height: 100px; resize: vertical; }
-    /* Reviews */
-    .reviews-list { padding: 0 16px 16px; }
-    .review-item {
-      background: white;
-      border-radius: 12px;
-      padding: 12px;
-      margin-bottom: 8px;
-      box-shadow: var(--shadow);
-    }
-    .review-header { display: flex; justify-content: space-between; margin-bottom: 4px; }
-    .review-author { font-weight: 600; font-size: 14px; }
-    .review-rating { color: #ffa500; font-size: 14px; }
-    .review-text { font-size: 14px; color: #555; }
-    .review-form {
-      padding: 16px;
-      background: white;
-      border-radius: var(--radius);
-      margin: 0 16px 16px;
-      box-shadow: var(--shadow);
-    }
-    .star-rating { display: flex; gap: 8px; margin-bottom: 12px; }
-    .star { font-size: 28px; cursor: pointer; color: #ddd; }
-    .star.active { color: #ffa500; }
-    /* Admin */
-    .admin-stats {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 12px;
-      padding: 16px;
-    }
-    .stat-card {
-      background: white;
-      border-radius: var(--radius);
-      padding: 16px;
-      box-shadow: var(--shadow);
-      text-align: center;
-    }
-    .stat-value { font-size: 28px; font-weight: 700; color: var(--primary); }
-    .stat-label { font-size: 12px; color: #666; margin-top: 4px; }
-    .admin-section { padding: 16px; }
-    .admin-table {
-      width: 100%;
-      background: white;
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      overflow: hidden;
-    }
-    .admin-table-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 12px 16px;
-      border-bottom: 1px solid #f0f0f0;
-      font-size: 14px;
-    }
-    .admin-table-row:last-child { border-bottom: none; }
-    .admin-btn {
-      padding: 8px 16px;
-      background: var(--primary);
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      margin: 16px;
-      width: calc(100% - 32px);
-    }
-    .tabs {
-      display: flex;
-      gap: 8px;
-      padding: 0 16px 12px;
-      overflow-x: auto;
-    }
-    .tab {
-      padding: 8px 16px;
-      border-radius: 20px;
-      background: white;
-      border: 1px solid #e0e0e0;
-      font-size: 14px;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-    .tab.active { background: var(--primary); color: white; border-color: var(--primary); }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Мир Косметики</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+body{background:#f5f5f5;color:#222}
+.header{background:#fff;padding:16px;text-align:center;border-bottom:1px solid #e0e0e0;position:sticky;top:0;z-index:10}
+.header h1{font-size:20px;color:#d81b60}
+.nav{display:flex;justify-content:center;gap:8px;padding:10px;background:#fff;border-bottom:1px solid #e0e0e0}
+.nav button{flex:1;padding:10px;border:none;background:#f8f8f8;border-radius:8px;font-size:14px;cursor:pointer}
+.nav button.active{background:#d81b60;color:#fff}
+.container{padding:12px;max-width:600px;margin:0 auto}
+.search{width:100%;padding:12px;border:1px solid #ddd;border-radius:10px;margin-bottom:12px;font-size:16px}
+.categories{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:8px}
+.cat-btn{white-space:nowrap;padding:8px 14px;border:1px solid #d81b60;background:#fff;color:#d81b60;border-radius:20px;font-size:13px;cursor:pointer}
+.cat-btn.active{background:#d81b60;color:#fff}
+.products{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.product-card{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);position:relative}
+.product-card img{width:100%;height:160px;object-fit:cover}
+.product-info{padding:10px}
+.product-info h3{font-size:15px;margin-bottom:4px}
+.product-info .price{font-size:16px;font-weight:700;color:#d81b60;margin-bottom:6px}
+.product-info .rating{font-size:13px;color:#ffa000;margin-bottom:6px}
+.product-info button{width:100%;padding:8px;border:none;background:#d81b60;color:#fff;border-radius:8px;font-size:14px;cursor:pointer}
+.wish-btn{position:absolute;top:8px;right:8px;background:rgba(255,255,255,0.9);border:none;border-radius:50%;width:32px;height:32px;font-size:18px;cursor:pointer}
+.cart-item{display:flex;gap:10px;background:#fff;padding:10px;border-radius:10px;margin-bottom:8px;align-items:center}
+.cart-item img{width:60px;height:60px;border-radius:8px;object-fit:cover}
+.cart-item .info{flex:1}
+.cart-item .qty{display:flex;align-items:center;gap:8px}
+.cart-item .qty button{width:28px;height:28px;border:1px solid #ddd;background:#fff;border-radius:6px;cursor:pointer}
+.total-box{background:#fff;padding:14px;border-radius:10px;text-align:center;font-size:18px;font-weight:700;margin-bottom:10px}
+.checkout-btn{width:100%;padding:14px;border:none;background:#d81b60;color:#fff;border-radius:10px;font-size:16px;cursor:pointer}
+.promo-input{width:100%;padding:12px;border:1px solid #ddd;border-radius:10px;margin-bottom:10px;font-size:16px}
+.order-card{background:#fff;padding:12px;border-radius:10px;margin-bottom:10px}
+.order-card .status{font-size:13px;color:#555;margin-top:4px}
+.review-form{background:#fff;padding:12px;border-radius:10px;margin-top:8px}
+.review-form textarea{width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;resize:vertical;min-height:60px}
+.review-form .stars{display:flex;gap:6px;margin:8px 0}
+.review-form .stars span{font-size:24px;cursor:pointer}
+.review-item{background:#fff;padding:10px;border-radius:10px;margin-bottom:8px}
+.review-item .author{font-weight:700;font-size:14px}
+.review-item .text{font-size:14px;color:#444;margin-top:4px}
+.hidden{display:none}
+.empty{text-align:center;color:#888;padding:40px 20px}
+</style>
 </head>
 <body>
-  <div class="app-container">
-    <div class="header">
-      <h1>Мир Косметики</h1>
-      <p>Лучшие товары для вашей красоты</p>
-    </div>
-
-    <!-- PRODUCTS VIEW -->
-    <div id="products-view">
-      <div class="search-container">
-        <input type="text" class="search-input" id="search-input" placeholder="Поиск товаров..." />
-      </div>
-      <div class="categories" id="categories"></div>
-      <div class="loading" id="products-loading">
-        <div class="spinner"></div>
-        <p>Загрузка товаров...</p>
-      </div>
-      <div class="products-grid hidden" id="products-grid"></div>
-    </div>
-
-    <!-- PRODUCT DETAIL (reviews + add review) -->
-    <div id="product-detail-view" class="hidden">
-      <button class="back-btn" onclick="showProducts()">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
-        Назад
-      </button>
-      <div id="product-detail-content"></div>
-      <div class="section-title">Отзывы</div>
-      <div class="review-form hidden" id="review-form">
-        <div class="form-label">Ваша оценка</div>
-        <div class="star-rating" id="star-rating">
-          <span class="star" data-value="1">★</span>
-          <span class="star" data-value="2">★</span>
-          <span class="star" data-value="3">★</span>
-          <span class="star" data-value="4">★</span>
-          <span class="star" data-value="5">★</span>
-        </div>
-        <textarea class="form-input" id="review-text" placeholder="Расскажите о товаре..."></textarea>
-        <button class="admin-btn" onclick="submitReview()" style="margin-top:12px;">Оставить отзыв</button>
-      </div>
-      <div class="reviews-list" id="reviews-list"></div>
-    </div>
-
-    <!-- WISHLIST VIEW -->
-    <div id="wishlist-view" class="hidden">
-      <div class="section-title">Избранное</div>
-      <div id="wishlist-items"></div>
-      <div id="wishlist-empty" class="empty-state hidden">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
-        <p>В избранном пока пусто</p>
-      </div>
-    </div>
-
-    <!-- CART VIEW -->
-    <div id="cart-view" class="hidden">
-      <div class="section-title">Корзина</div>
-      <div id="cart-items"></div>
-      <div id="cart-empty" class="empty-state hidden">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 01-8 0"></path></svg>
-        <p>Ваша корзина пуста</p>
-      </div>
-      <div id="cart-promo-section">
-        <input type="text" class="promo-input" id="promo-code" placeholder="Промокод (например: SALE20)" />
-        <button class="promo-btn" onclick="applyPromo()">Применить промокод</button>
-        <div class="discount-row hidden" id="discount-row">
-          <span>Скидка:</span>
-          <span id="discount-amount">0 ₽</span>
-        </div>
-      </div>
-      <div class="cart-total hidden" id="cart-total">
-        <span class="cart-total-label">Итого:</span>
-        <span class="cart-total-price" id="cart-total-price">0 ₽</span>
-      </div>
-      <button class="checkout-btn hidden" id="checkout-btn" onclick="showCheckout()">Оформить заказ</button>
-    </div>
-
-    <!-- ORDERS VIEW -->
-    <div id="orders-view" class="hidden">
-      <div class="section-title">Мои заказы</div>
-      <div id="orders-list"></div>
-      <div id="orders-empty" class="empty-state hidden">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-        <p>У вас пока нет заказов</p>
-      </div>
-    </div>
-
-    <!-- CHECKOUT VIEW -->
-    <div id="checkout-view" class="hidden">
-      <button class="back-btn" onclick="showCart()">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
-        Назад в корзину
-      </button>
-      <div class="section-title">Оформление заказа</div>
-      <div class="form-group">
-        <label class="form-label">Адрес доставки</label>
-        <textarea class="form-input" id="delivery-address" placeholder="Город, улица, дом, квартира..."></textarea>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Телефон</label>
-        <input type="tel" class="form-input" id="phone" placeholder="+7 (999) 000-00-00" />
-      </div>
-      <div class="cart-total" style="margin: 16px;">
-        <span class="cart-total-label">К оплате:</span>
-        <span class="cart-total-price" id="checkout-total">0 ₽</span>
-      </div>
-      <button class="checkout-btn" onclick="placeOrder()">Подтвердить заказ</button>
-    </div>
-
-    <!-- ADMIN VIEW -->
-    <div id="admin-view" class="hidden">
-      <div class="section-title">Админ-панель</div>
-      <div class="admin-stats" id="admin-stats">
-        <div class="stat-card"><div class="stat-value" id="stat-orders">0</div><div class="stat-label">Заказов</div></div>
-        <div class="stat-card"><div class="stat-value" id="stat-revenue">0</div><div class="stat-label">Выручка, ₽</div></div>
-        <div class="stat-card"><div class="stat-value" id="stat-products">0</div><div class="stat-label">Товаров</div></div>
-        <div class="stat-card"><div class="stat-value" id="stat-users">0</div><div class="stat-label">Пользователей</div></div>
-      </div>
-      <div class="tabs">
-        <div class="tab active" onclick="showAdminTab('orders')">Заказы</div>
-        <div class="tab" onclick="showAdminTab('products')">Товары</div>
-        <div class="tab" onclick="showAdminTab('promos')">Промокоды</div>
-      </div>
-      <div class="admin-section" id="admin-orders"></div>
-      <div class="admin-section hidden" id="admin-products"></div>
-      <div class="admin-section hidden" id="admin-promos"></div>
-    </div>
-
-    <!-- MODAL -->
-    <div class="modal-overlay" id="product-modal">
-      <div class="modal-content">
-        <img class="modal-image" id="modal-image" src="" alt="" />
-        <div class="modal-info">
-          <div class="modal-title" id="modal-title"></div>
-          <div class="modal-price" id="modal-price"></div>
-          <div class="modal-desc" id="modal-desc"></div>
-          <div class="quantity-selector">
-            <button class="quantity-btn" onclick="changeQuantity(-1)">−</button>
-            <span class="quantity-value" id="modal-quantity">1</span>
-            <button class="quantity-btn" onclick="changeQuantity(1)">+</button>
-          </div>
-          <button class="add-btn" id="modal-add-btn" onclick="addToCartFromModal()">Добавить в корзину</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- BOTTOM NAV -->
-    <div class="bottom-nav">
-      <div class="nav-item active" onclick="showProducts()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-        <span>Каталог</span>
-      </div>
-      <div class="nav-item" onclick="showWishlist()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
-        <span>Избранное</span>
-      </div>
-      <div class="nav-item" onclick="showCart()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"></path></svg>
-        <span>Корзина</span>
-        <span class="cart-badge hidden" id="cart-badge">0</span>
-      </div>
-      <div class="nav-item" onclick="showOrders()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-        <span>Заказы</span>
-      </div>
+<div class="header"><h1>Мир Косметики</h1></div>
+<div class="nav">
+  <button class="active" onclick="showTab('catalog')">Каталог</button>
+  <button onclick="showTab('favorites')">Избранное</button>
+  <button onclick="showTab('cart')">Корзина</button>
+  <button onclick="showTab('orders')">Заказы</button>
+</div>
+<div class="container">
+  <div id="catalog" class="tab">
+    <input type="text" class="search" id="searchInput" placeholder="Поиск товаров..." oninput="filterProducts()">
+    <div class="categories" id="categories"></div>
+    <div class="products" id="products"></div>
+  </div>
+  <div id="favorites" class="tab hidden">
+    <div id="favoritesList"><div class="empty">Нет избранных товаров</div></div>
+  </div>
+  <div id="cart" class="tab hidden">
+    <div id="cartItems"><div class="empty">Корзина пуста</div></div>
+    <div id="cartFooter" class="hidden">
+      <input type="text" class="promo-input" id="promoInput" placeholder="Промокод (например SKIDKA10)">
+      <button class="checkout-btn" onclick="applyPromo()">Применить промокод</button>
+      <div class="total-box" id="cartTotal">Итого: 0 руб.</div>
+      <input type="text" class="promo-input" id="addressInput" placeholder="Адрес доставки">
+      <input type="text" class="promo-input" id="phoneInput" placeholder="Телефон">
+      <button class="checkout-btn" onclick="checkout()">Оформить заказ</button>
     </div>
   </div>
+  <div id="orders" class="tab hidden">
+    <div id="ordersList"><div class="empty">Нет заказов</div></div>
+  </div>
+</div>
+<script>
+const API_URL = 'https://cosmetics-marketplace-production.up.railway.app';
+let tg = window.Telegram.WebApp;
+let userId = tg.initDataUnsafe.user ? tg.initDataUnsafe.user.id : 1;
+let cart = JSON.parse(localStorage.getItem('cart_'+userId) || '[]');
+let favorites = JSON.parse(localStorage.getItem('fav_'+userId) || '[]');
+let currentCategory = '';
+let promoDiscount = 0;
+let productsData = [];
 
-  <script>
-    const API_URL = 'https://cosmetics-marketplace-production.up.railway.app';
-    let tg = window.Telegram.WebApp;
-    tg.expand();
-    tg.ready();
+tg.expand();
+tg.ready();
 
-    let products = [];
-    let categories = [];
-    let cart = [];
-    let orders = [];
-    let wishlist = [];
-    let currentProduct = null;
-    let modalQuantity = 1;
-    let currentCategory = null;
-    let currentReviewRating = 0;
-    let appliedPromo = null;
-    let discountAmount = 0;
-    let isAdmin = false;
+async function api(path, opts){
+  const res = await fetch(API_URL + '/api/v1' + path, opts);
+  if(!res.ok) throw new Error('Ошибка сети');
+  return res.json();
+}
 
-    async function api(path, opts = {}) {
-      const res = await fetch(API_URL + '/api/v1' + path, {
-        ...opts,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Init-Data': tg.initData,
-          ...(opts.headers || {})
-        }
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || 'Ошибка сервера');
-      }
-      return res.json();
-    }
+function showTab(id){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
+  event.target.classList.add('active');
+  if(id==='catalog') loadProducts();
+  if(id==='favorites') loadFavorites();
+  if(id==='cart') renderCart();
+  if(id==='orders') loadOrders();
+}
 
-    async function adminApi(path, opts = {}) {
-      const res = await fetch(API_URL + '/api/v1' + path, {
-        ...opts,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Seller-Key': 'Kx9mP2nQ7rL4vW8jH3bC5dF1gA6eY0iU',
-          ...(opts.headers || {})
-        }
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || 'Ошибка сервера');
-      }
-      return res.json();
-    }
+async function loadCategories(){
+  const cats = await api('/categories/');
+  let html = '<button class="cat-btn active" onclick="setCategory('')">Все</button>';
+  cats.forEach(c=>{
+    html += `<button class="cat-btn" onclick="setCategory('${c.slug}')">${c.name}</button>`;
+  });
+  document.getElementById('categories').innerHTML = html;
+}
 
-    // ─── Products ──────────────────────────────────────────────
+async function loadProducts(){
+  const url = currentCategory ? '/products/?category='+currentCategory : '/products/';
+  productsData = await api(url);
+  renderProducts(productsData);
+}
 
-    async function loadCategories() {
-      try {
-        categories = await api('/categories/');
-        const container = document.getElementById('categories');
-        container.innerHTML = '<button class="category-btn active" onclick="filterCategory(null)">Все</button>' +
-          categories.map(c => `<button class="category-btn" onclick="filterCategory(${c.id})">${c.name}</button>`).join('');
-      } catch (e) { console.error(e); }
-    }
+function renderProducts(list){
+  if(!list.length){ document.getElementById('products').innerHTML='<div class="empty">Ничего не найдено</div>'; return; }
+  document.getElementById('products').innerHTML = list.map(p=>{
+    const isFav = favorites.includes(p.id);
+    const stars = '★'.repeat(Math.round(p.rating||0)) + '☆'.repeat(5-Math.round(p.rating||0));
+    return `<div class="product-card">
+      <button class="wish-btn" onclick="toggleFavorite(${p.id})">${isFav?'❤️':'🤍'}</button>
+      <img src="${p.image_url||''}" alt="${p.name}">
+      <div class="product-info">
+        <h3>${p.name}</h3>
+        <div class="price">${p.price} руб.</div>
+        <div class="rating">${stars} (${p.reviews_count||0})</div>
+        <button onclick="addToCart(${p.id},'${p.name}',${p.price},'${p.image_url||''}')">В корзину</button>
+        <button style="margin-top:6px;background:#fff;color:#d81b60;border:1px solid #d81b60" onclick="openReviews(${p.id},'${p.name}')">Отзывы</button>
+      </div>
+    </div>`;
+  }).join('');
+}
 
-    async function loadProducts() {
-      try {
-        document.getElementById('products-loading').classList.remove('hidden');
-        document.getElementById('products-grid').classList.add('hidden');
-        const search = document.getElementById('search-input').value;
-        let url = '/products/?limit=40';
-        if (currentCategory) url += '&category_id=' + currentCategory;
-        if (search) url += '&search=' + encodeURIComponent(search);
-        products = await api(url);
-        renderProducts();
-      } catch (e) {
-        console.error(e);
-        document.getElementById('products-loading').innerHTML = '<p>Не удалось загрузить товары</p>';
-      }
-    }
+function setCategory(slug){
+  currentCategory = slug;
+  document.querySelectorAll('.cat-btn').forEach(b=>b.classList.remove('active'));
+  event.target.classList.add('active');
+  loadProducts();
+}
 
-    function renderProducts() {
-      const grid = document.getElementById('products-grid');
-      if (products.length === 0) {
-        grid.innerHTML = '<div class="empty-state" style="grid-column: 1/-1;"><p>Товары не найдены</p></div>';
-      } else {
-        grid.innerHTML = products.map(p => {
-          const inWishlist = wishlist.some(w => w.product.id === p.id);
-          const stars = p.avg_rating ? '★'.repeat(Math.round(p.avg_rating)) + '☆'.repeat(5 - Math.round(p.avg_rating)) + ` (${p.review_count})` : '';
-          return `
-            <div class="product-card">
-              <button class="wishlist-btn ${inWishlist ? 'active' : ''}" onclick="event.stopPropagation(); toggleWishlist(${p.id})">
-                ${inWishlist ? '♥' : '♡'}
-              </button>
-              <img class="product-image" src="${p.image_url || 'https://via.placeholder.com/300x300?text=Нет+фото'}" alt="${p.name}" loading="lazy" onclick="showProductDetail(${p.id})" />
-              <div class="product-info" onclick="showProductDetail(${p.id})">
-                <div class="product-name">${p.name}</div>
-                <div class="product-price">${p.price} ₽</div>
-                <div class="product-stock">${p.stock > 0 ? 'В наличии: ' + p.stock + ' шт.' : 'Нет в наличии'}</div>
-                ${stars ? `<div class="product-rating">${stars}</div>` : ''}
-              </div>
-              <button class="add-to-cart-btn" onclick="event.stopPropagation(); quickAdd(${p.id})" ${p.stock <= 0 ? 'disabled' : ''}>
-                ${p.stock > 0 ? 'В корзину' : 'Нет в наличии'}
-              </button>
-            </div>
-          `;
-        }).join('');
-      }
-      document.getElementById('products-loading').classList.add('hidden');
-      document.getElementById('products-grid').classList.remove('hidden');
-    }
+function filterProducts(){
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  renderProducts(productsData.filter(p=>p.name.toLowerCase().includes(q)));
+}
 
-    function filterCategory(id) {
-      currentCategory = id;
-      document.querySelectorAll('.category-btn').forEach((btn, i) => {
-        btn.classList.toggle('active', (id === null && i === 0) || (categories[i-1] && categories[i-1].id === id));
-      });
-      loadProducts();
-    }
+function addToCart(id,name,price,img){
+  const ex = cart.find(x=>x.id===id);
+  if(ex) ex.qty++; else cart.push({id,name,price,img,qty:1});
+  saveCart();
+  tg.showAlert('Товар добавлен в корзину');
+}
 
-    document.getElementById('search-input').addEventListener('input', debounce(loadProducts, 300));
-    function debounce(fn, ms) { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); }; }
+function saveCart(){ localStorage.setItem('cart_'+userId, JSON.stringify(cart)); }
 
-    // ─── Product Detail + Reviews ──────────────────────────────
+function renderCart(){
+  if(!cart.length){ document.getElementById('cartItems').innerHTML='<div class="empty">Корзина пуста</div>'; document.getElementById('cartFooter').classList.add('hidden'); return; }
+  let total = 0;
+  document.getElementById('cartItems').innerHTML = cart.map((it,i)=>{
+    total += it.price * it.qty;
+    return `<div class="cart-item">
+      <img src="${it.img||''}">
+      <div class="info"><div style="font-weight:700">${it.name}</div><div>${it.price} руб.</div></div>
+      <div class="qty"><button onclick="changeQty(${i},-1)">-</button><span>${it.qty}</span><button onclick="changeQty(${i},1)">+</button></div>
+    </div>`;
+  }).join('');
+  const finalTotal = Math.max(0, total - (total * promoDiscount / 100));
+  document.getElementById('cartTotal').textContent = 'Итого: ' + Math.round(finalTotal) + ' руб.' + (promoDiscount ? ' (скидка '+promoDiscount+'%)' : '');
+  document.getElementById('cartFooter').classList.remove('hidden');
+}
 
-    async function showProductDetail(id) {
-      currentProduct = products.find(p => p.id === id);
-      if (!currentProduct) return;
-      document.getElementById('products-view').classList.add('hidden');
-      document.getElementById('product-detail-view').classList.remove('hidden');
-      document.getElementById('product-modal').classList.remove('active');
-      updateNav(null);
+function changeQty(idx,delta){
+  cart[idx].qty += delta;
+  if(cart[idx].qty <= 0) cart.splice(idx,1);
+  saveCart();
+  renderCart();
+}
 
-      const stars = currentProduct.avg_rating ? `<span style="color:#ffa500">${'★'.repeat(Math.round(currentProduct.avg_rating))}</span> (${currentProduct.review_count} отзывов)` : 'Нет отзывов';
-      document.getElementById('product-detail-content').innerHTML = `
-        <img src="${currentProduct.image_url || 'https://via.placeholder.com/400x400?text=Нет+фото'}" style="width:100%;height:300px;object-fit:cover;" />
-        <div style="padding:24px;">
-          <div style="font-size:24px;font-weight:700;margin-bottom:8px;">${currentProduct.name}</div>
-          <div style="font-size:22px;font-weight:700;color:var(--primary);margin-bottom:8px;">${currentProduct.price} ₽</div>
-          <div style="margin-bottom:16px;">${stars}</div>
-          <div style="font-size:15px;color:#555;line-height:1.6;">${currentProduct.description || 'Описание отсутствует'}</div>
-          <button class="add-btn" onclick="openModal(${currentProduct.id})" style="margin-top:24px;">Добавить в корзину</button>
-        </div>
-      `;
-      document.getElementById('review-form').classList.remove('hidden');
-      loadReviews(id);
-      setupStarRating();
-    }
+async function applyPromo(){
+  const code = document.getElementById('promoInput').value.trim();
+  if(!code){ tg.showAlert('Введите промокод'); return; }
+  try{
+    const res = await api('/promo/validate', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({code})});
+    promoDiscount = res.discount_percent;
+    tg.showAlert('Промокод применен! Скидка '+promoDiscount+'%');
+    renderCart();
+  }catch(e){ tg.showAlert('Промокод не найден'); promoDiscount=0; renderCart(); }
+}
 
-    async function loadReviews(productId) {
-      try {
-        const reviews = await api(`/products/${productId}/reviews`);
-        const container = document.getElementById('reviews-list');
-        if (reviews.length === 0) {
-          container.innerHTML = '<p style="text-align:center;color:#999;padding:20px;">Пока нет отзывов. Будьте первым!</p>';
-        } else {
-          container.innerHTML = reviews.map(r => `
-            <div class="review-item">
-              <div class="review-header">
-                <span class="review-author">${r.user_name}</span>
-                <span class="review-rating">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span>
-              </div>
-              <div class="review-text">${r.text || ''}</div>
-            </div>
-          `).join('');
-        }
-      } catch (e) { console.error(e); }
-    }
+async function checkout(){
+  if(!cart.length){ tg.showAlert('Корзина пуста'); return; }
+  const address = document.getElementById('addressInput').value.trim();
+  const phone = document.getElementById('phoneInput').value.trim();
+  if(!address || !phone){ tg.showAlert('Заполните адрес и телефон'); return; }
+  const items = cart.map(c=>({product_id:c.id, quantity:c.qty}));
+  try{
+    const res = await api('/orders/', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({
+      buyer_id:userId, buyer_name:(tg.initDataUnsafe.user?tg.initDataUnsafe.user.first_name:'Покупатель'),
+      buyer_phone:phone, buyer_address:address, items:items, promo_code:document.getElementById('promoInput').value.trim()
+    })});
+    tg.showAlert('Заказ оформлен! Номер: '+res.id);
+    cart=[]; saveCart(); promoDiscount=0;
+    renderCart();
+  }catch(e){ tg.showAlert('Ошибка оформления заказа'); }
+}
 
-    function setupStarRating() {
-      currentReviewRating = 0;
-      document.querySelectorAll('#star-rating .star').forEach(star => {
-        star.onclick = () => {
-          currentReviewRating = parseInt(star.dataset.value);
-          document.querySelectorAll('#star-rating .star').forEach((s, i) => {
-            s.classList.toggle('active', i < currentReviewRating);
-          });
-        };
-      });
-    }
+async function loadOrders(){
+  try{
+    const orders = await api('/orders/'+userId);
+    if(!orders.length){ document.getElementById('ordersList').innerHTML='<div class="empty">Нет заказов</div>'; return; }
+    document.getElementById('ordersList').innerHTML = orders.map(o=>{
+      let st = o.status;
+      if(st==='pending') st='Ожидает отправки';
+      if(st==='shipped') st='Отправлен';
+      if(st==='delivered') st='Доставлен';
+      if(st==='cancelled') st='Отменен';
+      return `<div class="order-card">
+        <div style="font-weight:700">Заказ #${o.id}</div>
+        <div>Сумма: ${o.total} руб.</div>
+        <div class="status">Статус: ${st}</div>
+        <div style="font-size:13px;color:#666;margin-top:4px">${o.items.map(i=>i.product_name+' x'+i.quantity).join(', ')}</div>
+        ${o.promo_code?'<div style="font-size:13px;color:#d81b60">Промокод: '+o.promo_code+'</div>':''}
+      </div>`;
+    }).join('');
+  }catch(e){ document.getElementById('ordersList').innerHTML='<div class="empty">Ошибка загрузки</div>'; }
+}
 
-    async function submitReview() {
-      if (!currentProduct) return;
-      if (currentReviewRating === 0) { tg.showAlert('Выберите оценку'); return; }
-      const text = document.getElementById('review-text').value;
-      try {
-        tg.MainButton.showProgress();
-        await api(`/products/${currentProduct.id}/reviews`, {
-          method: 'POST',
-          body: JSON.stringify({ rating: currentReviewRating, text })
-        });
-        document.getElementById('review-text').value = '';
-        currentReviewRating = 0;
-        document.querySelectorAll('#star-rating .star').forEach(s => s.classList.remove('active'));
-        tg.showAlert('Отзыв добавлен!');
-        loadReviews(currentProduct.id);
-        loadProducts();
-      } catch (e) {
-        tg.showAlert('Ошибка: ' + e.message);
-      } finally {
-        tg.MainButton.hideProgress();
-      }
-    }
+function toggleFavorite(pid){
+  const idx = favorites.indexOf(pid);
+  if(idx>=0) favorites.splice(idx,1); else favorites.push(pid);
+  localStorage.setItem('fav_'+userId, JSON.stringify(favorites));
+  loadProducts();
+}
 
-    // ─── Wishlist ──────────────────────────────────────────────
+async function loadFavorites(){
+  if(!favorites.length){ document.getElementById('favoritesList').innerHTML='<div class="empty">Нет избранных товаров</div>'; return; }
+  const all = await api('/products/');
+  const favs = all.filter(p=>favorites.includes(p.id));
+  if(!favs.length){ document.getElementById('favoritesList').innerHTML='<div class="empty">Нет избранных товаров</div>'; return; }
+  document.getElementById('favoritesList').innerHTML = favs.map(p=>{
+    return `<div class="product-card">
+      <button class="wish-btn" onclick="toggleFavorite(${p.id})">❤️</button>
+      <img src="${p.image_url||''}" alt="${p.name}">
+      <div class="product-info">
+        <h3>${p.name}</h3>
+        <div class="price">${p.price} руб.</div>
+        <button onclick="addToCart(${p.id},'${p.name}',${p.price},'${p.image_url||''}')">В корзину</button>
+      </div>
+    </div>`;
+  }).join('');
+}
 
-    async function loadWishlist() {
-      try {
-        wishlist = await api('/wishlist/');
-        renderWishlist();
-      } catch (e) { console.error(e); }
-    }
+async function openReviews(productId, productName){
+  const reviews = await api('/reviews/'+productId);
+  let html = `<div style="background:#fff;padding:12px;border-radius:10px;margin-bottom:10px"><h3>Отзывы: ${productName}</h3>`;
+  if(!reviews.length) html += '<div style="color:#888;margin-top:8px">Пока нет отзывов</div>';
+  else html += reviews.map(r=>`<div class="review-item"><div class="author">${r.buyer_name||'Покупатель'} — ${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</div><div class="text">${r.text}</div></div>`).join('');
+  html += `</div><div class="review-form"><h4>Оставить отзыв</h4><div class="stars" id="starBox"><span onclick="setRating(1)">☆</span><span onclick="setRating(2)">☆</span><span onclick="setRating(3)">☆</span><span onclick="setRating(4)">☆</span><span onclick="setRating(5)">☆</span></div><textarea id="reviewText" placeholder="Ваш отзыв..."></textarea><button class="checkout-btn" style="margin-top:8px" onclick="submitReview(${productId})">Отправить</button></div>`;
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  div.style.position='fixed'; div.style.top='0'; div.style.left='0'; div.style.width='100%'; div.style.height='100%'; div.style.background='#f5f5f5'; div.style.zIndex='100'; div.style.overflow='auto';
+  div.innerHTML = '<button style="position:sticky;top:10px;left:10px;z-index:101;padding:8px 14px;border:none;background:#d81b60;color:#fff;border-radius:8px;cursor:pointer" onclick="this.parentElement.remove()">Закрыть</button>' + html;
+  document.body.appendChild(div);
+}
 
-    function renderWishlist() {
-      const container = document.getElementById('wishlist-items');
-      const empty = document.getElementById('wishlist-empty');
-      if (wishlist.length === 0) {
-        container.innerHTML = '';
-        empty.classList.remove('hidden');
-        return;
-      }
-      empty.classList.add('hidden');
-      container.innerHTML = wishlist.map(item => `
-        <div class="cart-item">
-          <img class="cart-item-image" src="${item.product.image_url || 'https://via.placeholder.com/80?text=Нет+фото'}" alt="${item.product.name}" />
-          <div class="cart-item-info">
-            <div class="cart-item-name">${item.product.name}</div>
-            <div class="cart-item-price">${item.product.price} ₽</div>
-            <div class="cart-item-actions">
-              <button class="cart-quantity-btn" onclick="quickAdd(${item.product.id})" style="width:auto;padding:4px 12px;">В корзину</button>
-              <span class="remove-btn" onclick="removeFromWishlist(${item.product.id})">Удалить</span>
-            </div>
-          </div>
-        </div>
-      `).join('');
-    }
+let selectedRating = 5;
+function setRating(n){
+  selectedRating = n;
+  const box = document.getElementById('starBox');
+  if(box) box.innerHTML = [1,2,3,4,5].map(i=>`<span onclick="setRating(${i})">${i<=n?'★':'☆'}</span>`).join('');
+}
 
-    async function toggleWishlist(productId) {
-      const inWishlist = wishlist.some(w => w.product.id === productId);
-      try {
-        if (inWishlist) {
-          await api(`/wishlist/${productId}`, { method: 'DELETE' });
-        } else {
-          await api('/wishlist/', { method: 'POST', body: JSON.stringify({ product_id: productId, quantity: 1 }) });
-        }
-        await loadWishlist();
-        renderProducts();
-      } catch (e) { tg.showAlert('Ошибка: ' + e.message); }
-    }
+async function submitReview(productId){
+  const text = document.getElementById('reviewText').value.trim();
+  if(!text){ tg.showAlert('Введите текст отзыва'); return; }
+  try{
+    await api('/reviews/', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({product_id:productId, buyer_id:userId, buyer_name:(tg.initDataUnsafe.user?tg.initDataUnsafe.user.first_name:''), rating:selectedRating, text})});
+    tg.showAlert('Отзыв добавлен!');
+    document.querySelector('button[onclick="this.parentElement.remove()"]').click();
+  }catch(e){ tg.showAlert('Ошибка отправки отзыва'); }
+}
 
-    async function removeFromWishlist(productId) {
-      try {
-        await api(`/wishlist/${productId}`, { method: 'DELETE' });
-        await loadWishlist();
-        renderProducts();
-      } catch (e) { tg.showAlert('Ошибка: ' + e.message); }
-    }
-
-    // ─── Cart ──────────────────────────────────────────────────
-
-    async function loadCart() {
-      try {
-        const data = await api('/cart/');
-        cart = data.items || [];
-        renderCart();
-      } catch (e) { console.error(e); }
-    }
-
-    function renderCart() {
-      const container = document.getElementById('cart-items');
-      const empty = document.getElementById('cart-empty');
-      const totalEl = document.getElementById('cart-total');
-      const checkoutBtn = document.getElementById('checkout-btn');
-      const badge = document.getElementById('cart-badge');
-      const promoSection = document.getElementById('cart-promo-section');
-
-      const totalQty = cart.reduce((s, i) => s + i.quantity, 0);
-      badge.textContent = totalQty;
-      badge.classList.toggle('hidden', totalQty === 0);
-
-      if (cart.length === 0) {
-        container.innerHTML = '';
-        empty.classList.remove('hidden');
-        totalEl.classList.add('hidden');
-        checkoutBtn.classList.add('hidden');
-        promoSection.classList.add('hidden');
-        return;
-      }
-
-      empty.classList.add('hidden');
-      totalEl.classList.remove('hidden');
-      checkoutBtn.classList.remove('hidden');
-      promoSection.classList.remove('hidden');
-
-      const subtotal = cart.reduce((s, i) => s + (parseFloat(i.product.price) * i.quantity), 0);
-      discountAmount = appliedPromo ? (subtotal * appliedPromo.discount_percent / 100) : 0;
-      const total = subtotal - discountAmount;
-
-      document.getElementById('cart-total-price').textContent = total.toFixed(0) + ' ₽';
-      document.getElementById('discount-row').classList.toggle('hidden', !appliedPromo);
-      if (appliedPromo) {
-        document.getElementById('discount-amount').textContent = '-' + discountAmount.toFixed(0) + ' ₽ (' + appliedPromo.discount_percent + '%)';
-      }
-
-      container.innerHTML = cart.map(item => `
-        <div class="cart-item">
-          <img class="cart-item-image" src="${item.product.image_url || 'https://via.placeholder.com/80?text=Нет+фото'}" alt="${item.product.name}" />
-          <div class="cart-item-info">
-            <div class="cart-item-name">${item.product.name}</div>
-            <div class="cart-item-price">${item.product.price} ₽</div>
-            <div class="cart-item-actions">
-              <button class="cart-quantity-btn" onclick="updateCartItem(${item.product.id}, ${item.quantity - 1})">−</button>
-              <span>${item.quantity}</span>
-              <button class="cart-quantity-btn" onclick="updateCartItem(${item.product.id}, ${item.quantity + 1})">+</button>
-              <span class="remove-btn" onclick="removeCartItem(${item.product.id})">Удалить</span>
-            </div>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    async function applyPromo() {
-      const code = document.getElementById('promo-code').value.trim();
-      if (!code) return;
-      try {
-        tg.MainButton.showProgress();
-        const result = await api('/cart/apply-promo', { method: 'POST', body: JSON.stringify({ code }) });
-        appliedPromo = result;
-        tg.showAlert('Промокод применён! Скидка ' + result.discount_percent + '%');
-        renderCart();
-      } catch (e) {
-        tg.showAlert('Ошибка: ' + e.message);
-        appliedPromo = null;
-      } finally {
-        tg.MainButton.hideProgress();
-      }
-    }
-
-    async function updateCartItem(productId, quantity) {
-      try {
-        if (quantity <= 0) { await removeCartItem(productId); return; }
-        await api('/cart/' + productId, { method: 'PATCH', body: JSON.stringify({ quantity }) });
-        await loadCart();
-      } catch (e) { tg.showAlert('Ошибка: ' + e.message); }
-    }
-
-    async function removeCartItem(productId) {
-      try {
-        await api('/cart/' + productId, { method: 'DELETE' });
-        await loadCart();
-      } catch (e) { tg.showAlert('Ошибка: ' + e.message); }
-    }
-
-    function openModal(id) {
-      currentProduct = products.find(p => p.id === id);
-      if (!currentProduct) return;
-      modalQuantity = 1;
-      document.getElementById('modal-image').src = currentProduct.image_url || 'https://via.placeholder.com/400x400?text=Нет+фото';
-      document.getElementById('modal-title').textContent = currentProduct.name;
-      document.getElementById('modal-price').textContent = currentProduct.price + ' ₽';
-      document.getElementById('modal-desc').textContent = currentProduct.description || 'Описание отсутствует';
-      document.getElementById('modal-quantity').textContent = modalQuantity;
-      document.getElementById('modal-add-btn').textContent = currentProduct.stock > 0 ? 'Добавить в корзину' : 'Нет в наличии';
-      document.getElementById('modal-add-btn').disabled = currentProduct.stock <= 0;
-      document.getElementById('product-modal').classList.add('active');
-    }
-
-    function changeQuantity(delta) {
-      modalQuantity = Math.max(1, Math.min(modalQuantity + delta, currentProduct ? currentProduct.stock : 99));
-      document.getElementById('modal-quantity').textContent = modalQuantity;
-    }
-
-    async function addToCartFromModal() {
-      if (!currentProduct || currentProduct.stock <= 0) return;
-      await addToCart(currentProduct.id, modalQuantity);
-      document.getElementById('product-modal').classList.remove('active');
-    }
-
-    async function quickAdd(productId) {
-      const product = products.find(p => p.id === productId);
-      if (!product || product.stock <= 0) return;
-      await addToCart(productId, 1);
-    }
-
-    async function addToCart(productId, quantity) {
-      try {
-        tg.MainButton.showProgress();
-        await api('/cart/', { method: 'POST', body: JSON.stringify({ product_id: productId, quantity }) });
-        await loadCart();
-        tg.showAlert('Товар добавлен в корзину!');
-      } catch (e) {
-        tg.showAlert('Ошибка: ' + e.message);
-      } finally {
-        tg.MainButton.hideProgress();
-      }
-    }
-
-    // ─── Checkout ──────────────────────────────────────────────
-
-    function showCheckout() {
-      if (cart.length === 0) return;
-      const subtotal = cart.reduce((s, i) => s + (parseFloat(i.product.price) * i.quantity), 0);
-      const total = subtotal - discountAmount;
-      document.getElementById('checkout-total').textContent = total.toFixed(0) + ' ₽';
-      document.getElementById('products-view').classList.add('hidden');
-      document.getElementById('cart-view').classList.add('hidden');
-      document.getElementById('orders-view').classList.add('hidden');
-      document.getElementById('checkout-view').classList.remove('hidden');
-      updateNav(null);
-    }
-
-    async function placeOrder() {
-      const address = document.getElementById('delivery-address').value.trim();
-      const phone = document.getElementById('phone').value.trim();
-      if (!address) { tg.showAlert('Введите адрес доставки'); return; }
-      if (!phone) { tg.showAlert('Введите номер телефона'); return; }
-      try {
-        tg.MainButton.showProgress();
-        const body = { delivery_address: address, phone };
-        if (appliedPromo) body.promo_code = appliedPromo.code;
-        await api('/orders/', { method: 'POST', body: JSON.stringify(body) });
-        tg.showAlert('Заказ успешно оформлен!');
-        appliedPromo = null;
-        discountAmount = 0;
-        document.getElementById('promo-code').value = '';
-        await loadCart();
-        await loadOrders();
-        showOrders();
-      } catch (e) {
-        tg.showAlert('Ошибка оформления: ' + e.message);
-      } finally {
-        tg.MainButton.hideProgress();
-      }
-    }
-
-    // ─── Orders ────────────────────────────────────────────────
-
-    async function loadOrders() {
-      try {
-        orders = await api('/orders/');
-        renderOrders();
-      } catch (e) { console.error(e); }
-    }
-
-    function renderOrders() {
-      const container = document.getElementById('orders-list');
-      const empty = document.getElementById('orders-empty');
-      if (orders.length === 0) {
-        container.innerHTML = '';
-        empty.classList.remove('hidden');
-        return;
-      }
-      empty.classList.add('hidden');
-      const statusLabels = {
-        pending: 'Ожидает оплаты',
-        paid: 'Оплачен',
-        shipped: 'Отправлен',
-        delivered: 'Доставлен',
-        cancelled: 'Отменён'
-      };
-      container.innerHTML = orders.map(o => {
-        const items = o.items.map(i => `${i.product.name} × ${i.quantity}`).join(', ');
-        const discountText = o.discount && parseFloat(o.discount) > 0 ? `<div style="color:#28a745;font-size:12px;">Скидка: ${parseFloat(o.discount).toFixed(0)} ₽</div>` : '';
-        const promoText = o.promo_code ? `<div style="color:#666;font-size:12px;">Промокод: ${o.promo_code}</div>` : '';
-        return `
-          <div class="order-card">
-            <div class="order-header">
-              <span class="order-id">Заказ #${o.id}</span>
-              <span class="order-status status-${o.status}">${statusLabels[o.status] || o.status}</span>
-            </div>
-            <div class="order-items">${items}</div>
-            ${discountText}
-            ${promoText}
-            <div class="order-total">${parseFloat(o.total_price).toFixed(0)} ₽</div>
-            <div style="font-size:12px;color:#999;margin-top:4px;">${o.delivery_address}</div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    // ─── Admin ─────────────────────────────────────────────────
-
-    async function loadAdminStats() {
-      try {
-        const stats = await adminApi('/admin/stats');
-        document.getElementById('stat-orders').textContent = stats.total_orders;
-        document.getElementById('stat-revenue').textContent = parseFloat(stats.total_revenue).toFixed(0);
-        document.getElementById('stat-products').textContent = stats.total_products;
-        document.getElementById('stat-users').textContent = stats.total_users;
-      } catch (e) { console.error(e); }
-    }
-
-    async function loadAdminOrders() {
-      try {
-        const orders = await adminApi('/admin/orders/');
-        const container = document.getElementById('admin-orders');
-        if (orders.length === 0) {
-          container.innerHTML = '<p style="text-align:center;color:#999;padding:20px;">Нет заказов</p>';
-          return;
-        }
-        const statusLabels = { pending: 'Ожидает', paid: 'Оплачен', shipped: 'Отправлен', delivered: 'Доставлен', cancelled: 'Отменён' };
-        container.innerHTML = `
-          <div class="admin-table">
-            ${orders.map(o => `
-              <div class="admin-table-row">
-                <div>
-                  <div style="font-weight:600;">Заказ #${o.id}</div>
-                  <div style="font-size:12px;color:#666;">${o.buyer} | ${o.phone}</div>
-                  <div style="font-size:12px;color:#999;">${o.items.map(i => i.product_name + '×' + i.quantity).join(', ')}</div>
-                </div>
-                <div style="text-align:right;">
-                  <div style="font-weight:700;color:var(--primary);">${parseFloat(o.total_price).toFixed(0)} ₽</div>
-                  <div style="font-size:12px;">${statusLabels[o.status] || o.status}</div>
-                  <div style="font-size:11px;color:#999;">${new Date(o.created_at).toLocaleDateString('ru-RU')}</div>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        `;
-      } catch (e) { console.error(e); }
-    }
-
-    async function loadAdminProducts() {
-      try {
-        const products = await adminApi('/admin/products/');
-        const container = document.getElementById('admin-products');
-        container.innerHTML = `
-          <div class="admin-table">
-            ${products.map(p => `
-              <div class="admin-table-row">
-                <div>
-                  <div style="font-weight:600;">${p.name}</div>
-                  <div style="font-size:12px;color:#666;">${p.category ? p.category.name : 'Без категории'} | Остаток: ${p.stock}</div>
-                </div>
-                <div style="text-align:right;">
-                  <div style="font-weight:700;">${p.price} ₽</div>
-                  <div style="font-size:12px;color:${p.is_active ? '#28a745' : '#dc3545'}">${p.is_active ? 'Активен' : 'Неактивен'}</div>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        `;
-      } catch (e) { console.error(e); }
-    }
-
-    async function loadAdminPromos() {
-      try {
-        const promos = await adminApi('/admin/promocodes/');
-        const container = document.getElementById('admin-promos');
-        container.innerHTML = `
-          <div class="admin-table">
-            ${promos.map(p => `
-              <div class="admin-table-row">
-                <div>
-                  <div style="font-weight:600;font-size:16px;">${p.code}</div>
-                  <div style="font-size:12px;color:#666;">Использований: ${p.used_count}${p.max_uses ? ' / ' + p.max_uses : ''}</div>
-                </div>
-                <div style="text-align:right;">
-                  <div style="font-weight:700;color:var(--primary);">-${p.discount_percent}%</div>
-                  <div style="font-size:12px;color:${p.is_active ? '#28a745' : '#dc3545'}">${p.is_active ? 'Активен' : 'Неактивен'}</div>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        `;
-      } catch (e) { console.error(e); }
-    }
-
-    function showAdminTab(tab) {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      event.target.classList.add('active');
-      document.getElementById('admin-orders').classList.toggle('hidden', tab !== 'orders');
-      document.getElementById('admin-products').classList.toggle('hidden', tab !== 'products');
-      document.getElementById('admin-promos').classList.toggle('hidden', tab !== 'promos');
-      if (tab === 'orders') loadAdminOrders();
-      if (tab === 'products') loadAdminProducts();
-      if (tab === 'promos') loadAdminPromos();
-    }
-
-    // ─── Navigation ────────────────────────────────────────────
-
-    function showProducts() {
-      hideAllViews();
-      document.getElementById('products-view').classList.remove('hidden');
-      updateNav('products');
-    }
-
-    function showWishlist() {
-      hideAllViews();
-      document.getElementById('wishlist-view').classList.remove('hidden');
-      updateNav('wishlist');
-      loadWishlist();
-    }
-
-    function showCart() {
-      hideAllViews();
-      document.getElementById('cart-view').classList.remove('hidden');
-      updateNav('cart');
-      loadCart();
-    }
-
-    function showOrders() {
-      hideAllViews();
-      document.getElementById('orders-view').classList.remove('hidden');
-      updateNav('orders');
-      loadOrders();
-    }
-
-    function showAdmin() {
-      hideAllViews();
-      document.getElementById('admin-view').classList.remove('hidden');
-      updateNav('admin');
-      loadAdminStats();
-      loadAdminOrders();
-    }
-
-    function hideAllViews() {
-      ['products-view', 'product-detail-view', 'wishlist-view', 'cart-view', 'orders-view', 'checkout-view', 'admin-view'].forEach(id => {
-        document.getElementById(id).classList.add('hidden');
-      });
-      document.getElementById('product-modal').classList.remove('active');
-    }
-
-    function updateNav(active) {
-      const navItems = document.querySelectorAll('.nav-item');
-      navItems.forEach((item, i) => {
-        item.classList.toggle('active',
-          (active === 'products' && i === 0) ||
-          (active === 'wishlist' && i === 1) ||
-          (active === 'cart' && i === 2) ||
-          (active === 'orders' && i === 3)
-        );
-      });
-    }
-
-    document.getElementById('product-modal').addEventListener('click', (e) => {
-      if (e.target === document.getElementById('product-modal')) {
-        document.getElementById('product-modal').classList.remove('active');
-      }
-    });
-
-    // ─── Init ──────────────────────────────────────────────────
-
-    (async () => {
-      await loadCategories();
-      await loadProducts();
-      await loadCart();
-      await loadWishlist();
-
-      // Check if admin (hardcoded seller IDs for demo)
-      const user = tg.initDataUnsafe?.user;
-      if (user && (user.id === 7890854793 || user.id === 940063562)) {
-        isAdmin = true;
-        const nav = document.querySelector('.bottom-nav');
-        nav.innerHTML += `
-          <div class="nav-item" onclick="showAdmin()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
-            <span>Админ</span>
-          </div>
-        `;
-      }
-    })();
-  </script>
+loadCategories();
+loadProducts();
+</script>
 </body>
 </html>
