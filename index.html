@@ -181,7 +181,7 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--white);color:
 <div class="toast-container" id="toastContainer"></div>
 </div>
 <script>
-const API_BASE="https://cosmetics-marketplace-production.up.railway.app";
+const API_BASE=cosmetics-marketplace.onrender.com;
 const tg=window.Telegram.WebApp;
 tg.expand();
 tg.ready();
@@ -223,7 +223,7 @@ function handleSearch(v){
 
 async function loadCategories(){
   try{
-    categories=await api('/categories/');
+    categories=await 	api('/categories');
     renderCategories();
   }catch(e){console.error(e);}
 }
@@ -247,7 +247,7 @@ function setCategory(name){
 
 async function loadProducts(){
   try{
-    products=await api('/products/');
+    	api('/products')
     renderCatalog();
   }catch(e){
     document.getElementById('mainContent').innerHTML='<div class="empty-state"><h3>Ошибка загрузки</h3></div>';
