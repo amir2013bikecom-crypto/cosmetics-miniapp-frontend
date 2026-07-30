@@ -8,7 +8,7 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
-:root{--gold:#C9A96E;--gold-light:#E8D5B0;--gold-dark:#A0824D;--black:#1A1A1A;--gray-900:#2D2D2D;--gray-700:#4A4A4A;--gray-500:#8E8E93;--gray-300:#C7C7CC;--gray-100:#F2F2F7;--gray-50:#FAFAFA;--white:#FFFFFF;--red:#FF3B30;--green:#34C759;--shadow-sm:0 1px 2px rgba(0,0,0,0.04);--shadow-md:0 4px 16px rgba(0,0,0,0.08);--shadow-lg:0 12px 40px rgba(0,0,0,0.12);--radius-sm:8px;--radius-md:12px;--radius-lg:16px;--radius-xl:24px;--transition:all 0.35s cubic-bezier(0.4,0,0.2,1);}
+:root{--gold:#C9A96E;--gold-light:#E8D5B0;--gold-dark:#A0824D;--black:#1A1A1A;--gray-900:#2D2D2D;--gray-700:#4A4A4A;--gray-500:#8E8E93;--gray-300:#C7C7CC;--gray-100:#F2F2F7;--gray-50:#FAFAFA;--white:#FFFFFF;--red:#FF3B30;--green:#34C759;--shadow-sm:0 1px 2px rgba(0,0,0,0.04);--shadow-md:0 4px 16px rgba(0,0,0,0.08);--shadow-lg:0 12px 40px rgba(0,0,0,0.12);--radius-sm:8px;--radius-md:12px;--radius-lg:16px;--radius-xl:24px;--transition:all 0.35s cubic-bezier(0.4,0,0.2,1)}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{font-family:'Inter',-apple-system,sans-serif;background:var(--white);color:var(--black);overflow-x:hidden;-webkit-font-smoothing:antialiased}
 ::-webkit-scrollbar{width:0;height:0}
@@ -116,7 +116,6 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--white);color:
 .order-total{font-size:16px;font-weight:700;text-align:right}
 .order-date{font-size:12px;color:var(--gray-500);margin-top:4px}
 .empty-state{text-align:center;padding:60px 20px;animation:fadeIn 0.5s ease}
-.empty-state svg{width:80px;height:80px;stroke:var(--gray-300);fill:none;margin-bottom:16px}
 .empty-state h3{font-family:'Playfair Display',serif;font-size:20px;margin-bottom:8px}
 .empty-state p{font-size:14px;color:var(--gray-500);margin-bottom:20px}
 .empty-btn{padding:12px 28px;border-radius:var(--radius-xl);background:var(--black);color:white;border:none;font-size:15px;font-weight:600;cursor:pointer}
@@ -129,7 +128,17 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--white);color:
 .review-item .author{font-weight:600;font-size:14px}
 .review-item .text{font-size:14px;color:var(--gray-700);line-height:1.5;margin-top:4px}
 .stars span{font-size:24px;color:var(--gold);cursor:pointer}
+.admin-login{padding:40px 16px;text-align:center}
+.admin-login h2{font-family:'Playfair Display',serif;font-size:24px;margin-bottom:8px}
+.admin-login p{color:var(--gray-500);margin-bottom:24px}
+.admin-login input{width:100%;max-width:300px;height:48px;border-radius:12px;border:1px solid var(--gray-300);padding:0 16px;font-size:15px;margin-bottom:12px}
+.admin-login button{width:100%;max-width:300px;height:48px;border-radius:24px;background:var(--black);color:white;border:none;font-size:15px;font-weight:600;cursor:pointer}
+.admin-login .error{color:var(--red);font-size:13px;margin-top:12px;display:none}
+.admin-header{display:flex;align-items:center;justify-content:space-between;padding:16px}
+.admin-header h2{padding:0}
+.admin-header button{padding:8px 16px;border-radius:12px;background:var(--gray-100);border:none;font-size:13px;cursor:pointer}
 </style>
+<base target="_blank">
 </head>
 <body>
 <div class="app-container">
@@ -209,14 +218,15 @@ async function submitReview(productId){const text=document.getElementById('revie
 loadCategories();loadProducts();updateBadges();
 </script>
 <script>
-// ===== ADMIN PANEL =====
+// ===== ADMIN PANEL (inline, isolated) =====
 (function(){
 const ADMIN_KEY="admin123";
 const SELLER_IDS=["7890854793","940063562"];
+const API_BASE="https://cosmetics-marketplace-production.up.railway.app";
 function getUserId(){if(window.Telegram?.WebApp?.initDataUnsafe?.user?.id)return String(window.Telegram.WebApp.initDataUnsafe.user.id);return localStorage.getItem('mk_user_id')||'';}
 function isSeller(){return SELLER_IDS.includes(getUserId());}
 const Admin={
-loginHTML(){return '<div class="page" style="padding:40px 16px;text-align:center;">'+'<svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#C9A96E" stroke-width="1.5" style="margin-bottom:20px;"><path d="M12 2L2 7l10 5 10-5-10-5z"/><polyline points="2 17 12 22 22 17"/></svg>'+'<h2 style="font-family:Playfair Display,serif;font-size:24px;margin-bottom:8px;">Панель продавца</h2>'+'<p style="color:#8E8E93;margin-bottom:24px;">Введите ключ доступа</p>'+'<input type="password" id="adminKeyInput" placeholder="Секретный ключ" style="width:100%;max-width:300px;height:48px;border-radius:12px;border:1px solid #C7C7CC;padding:0 16px;font-size:15px;margin-bottom:12px;">'+'<button id="adminLoginBtn" style="width:100%;max-width:300px;height:48px;border-radius:24px;background:#1A1A1A;color:white;border:none;font-size:15px;font-weight:600;cursor:pointer;">Войти</button>'+'<p id="adminError" style="color:#FF3B30;font-size:13px;margin-top:12px;display:none;">Неверный ключ</p></div>';},
+loginHTML(){return '<div class="page admin-login">'+'<svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#C9A96E" stroke-width="1.5" style="margin-bottom:20px"><path d="M12 2L2 7l10 5 10-5-10-5z"/><polyline points="2 17 12 22 22 17"/></svg>'+'<h2>Панель продавца</h2>'+'<p>Введите ключ доступа</p>'+'<input type="password" id="adminKeyInput" placeholder="Секретный ключ">'+'<button id="adminLoginBtn">Войти</button>'+'<p class="error" id="adminError">Неверный ключ</p></div>';},
 dashboardHTML(orders){
 const statusMap={pending:'Ожидает',processing:'В обработке',shipped:'Отправлен',delivered:'Доставлен',cancelled:'Отменён',received:'Получен'};
 const statusColors={pending:'#856404',processing:'#0C5460',shipped:'#155724',delivered:'#155724',cancelled:'#721C24',received:'#004085'};
@@ -224,9 +234,9 @@ const statusBg={pending:'#FFF3CD',processing:'#D1ECF1',shipped:'#D4EDDA',deliver
 if(!orders||!orders.length)return '<div class="page"><h2 class="section-title">Заказы</h2><div class="empty-state"><h3>Нет заказов</h3></div></div>';
 const cards=orders.map((o,i)=>{
 const items=(o.items||[]).map(it=>it.product_name+' x'+it.quantity).join(', ');
-return '<div class="order-card" style="animation-delay:'+(i*0.08)+'s"><div class="order-header"><span class="order-id">Заказ #'+o.id+'</span><span class="order-status" style="background:'+(statusBg[o.status]||'#eee')+';color:'+(statusColors[o.status]||'#333')+'">'+(statusMap[o.status]||o.status)+'</span></div><div class="order-items">'+(items||'Товары не указаны')+'</div><div style="font-size:13px;color:#8E8E93;margin-bottom:8px;">'+(o.buyer_name||'')+' | '+(o.buyer_phone||'')+'</div><div style="font-size:13px;color:#8E8E93;margin-bottom:12px;">'+(o.buyer_address||'')+'</div><div class="order-total">'+o.total+' ₽</div><div style="display:flex;gap:8px;margin-top:12px;">'+(o.status==='pending'?'<button class="admin-btn-ship" data-id="'+o.id+'" style="flex:1;height:40px;border-radius:12px;background:#1A1A1A;color:white;border:none;font-size:13px;font-weight:600;cursor:pointer;">Отправить</button><button class="admin-btn-cancel" data-id="'+o.id+'" style="flex:1;height:40px;border-radius:12px;background:#FF3B30;color:white;border:none;font-size:13px;font-weight:600;cursor:pointer;">Отменить</button>':'')+(o.status==='shipped'?'<button class="admin-btn-deliver" data-id="'+o.id+'" style="width:100%;height:40px;border-radius:12px;background:#34C759;color:white;border:none;font-size:13px;font-weight:600;cursor:pointer;">Доставлен</button>':'')+'</div></div>';
+return '<div class="order-card" style="animation-delay:'+(i*0.08)+'s"><div class="order-header"><span class="order-id">Заказ #'+o.id+'</span><span class="order-status" style="background:'+(statusBg[o.status]||'#eee')+';color:'+(statusColors[o.status]||'#333')+'">'+(statusMap[o.status]||o.status)+'</span></div><div class="order-items">'+(items||'Товары не указаны')+'</div><div style="font-size:13px;color:#8E8E93;margin-bottom:8px">'+(o.buyer_name||'')+' | '+(o.buyer_phone||'')+'</div><div style="font-size:13px;color:#8E8E93;margin-bottom:12px">'+(o.buyer_address||'')+'</div><div class="order-total">'+o.total+' ₽</div><div style="display:flex;gap:8px;margin-top:12px">'+(o.status==='pending'?'<button class="admin-btn-ship" data-id="'+o.id+'" style="flex:1;height:40px;border-radius:12px;background:#1A1A1A;color:white;border:none;font-size:13px;font-weight:600;cursor:pointer">Отправить</button><button class="admin-btn-cancel" data-id="'+o.id+'" style="flex:1;height:40px;border-radius:12px;background:#FF3B30;color:white;border:none;font-size:13px;font-weight:600;cursor:pointer">Отменить</button>':'')+(o.status==='shipped'?'<button class="admin-btn-deliver" data-id="'+o.id+'" style="width:100%;height:40px;border-radius:12px;background:#34C759;color:white;border:none;font-size:13px;font-weight:600;cursor:pointer">Доставлен</button>':'')+'</div></div>';
 }).join('');
-return '<div class="page"><div style="display:flex;align-items:center;justify-content:space-between;padding:16px;"><h2 class="section-title" style="padding:0;">Заказы</h2><button id="adminLogoutBtn" style="padding:8px 16px;border-radius:12px;background:#F2F2F7;border:none;font-size:13px;cursor:pointer;">Выйти</button></div><p class="section-subtitle">'+orders.length+' заказов</p>'+cards+'</div>';
+return '<div class="page"><div class="admin-header"><h2 class="section-title">Заказы</h2><button id="adminLogoutBtn">Выйти</button></div><p class="section-subtitle">'+orders.length+' заказов</p>'+cards+'</div>';
 },
 showLogin(){const main=document.getElementById('mainContent');if(main)main.innerHTML=this.loginHTML();this.attachLoginEvents();this.hideNav();},
 showOrders(){this.loadOrders();},
