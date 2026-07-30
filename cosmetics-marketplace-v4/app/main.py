@@ -318,3 +318,7 @@ async def seed(db: AsyncSession = Depends(get_db)):
 
     await db.commit()
     return {"detail": "База заполнена"}
+    
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
