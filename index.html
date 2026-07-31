@@ -277,7 +277,7 @@ function renderCatalog(){
     html+='<svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>';
     html+='</button></div>';
     html+='<div class="product-info">';
-    html+='<div class="product-brand">'+(p.category?p.category.name:'')+'</div>';
+    html+='<div class="product-brand">'+(p.category||'')+'</div>';
     html+='<div class="product-name">'+p.name+'</div>';
     html+='<div class="product-footer">';
     html+='<div class="product-price">'+p.price+' ₽</div>';
@@ -294,9 +294,9 @@ function openProductModal(pid){
   const p=products.find(x=>x.id===pid);
   if(!p)return;
   const isFav=favorites.indexOf(pid)>=0;
-  let html='<img class="modal-image" src="'+(p.image_url||'')+'">';
+  let html='<img class="modal-image" src="'+(p.image||'')+'">';
   html+='<div class="modal-body">';
-  html+='<div class="modal-category">'+(p.category?p.category.name:'')+'</div>';
+  html+='<div class="modal-category">'+(p.category||'')+'</div>';
   html+='<div class="modal-title">'+p.name+'</div>';
   html+='<div class="modal-desc">'+(p.description||'')+'</div>';
   html+='<div class="modal-price-row"><div class="modal-price">'+p.price+' ₽</div></div>';
@@ -506,7 +506,7 @@ async function renderWishlistPage(){
   favs.forEach((p,i)=>{
     html+='<div class="product-card" style="animation-delay:'+(i*0.05)+'s" onclick="openProductModal('+p.id+')">';
     html+='<div class="product-image-wrap">';
-    html+='<img src="'+(p.image_url||'')+'" alt="'+p.name+'" loading="lazy">';
+    html+='<img src="'+(p.image||'')+'" alt="'+p.name+'" loading="lazy">';
     html+='<button class="product-wishlist-btn active" onclick="event.stopPropagation();toggleFavorite('+p.id+')">';
     html+='<svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>';
     html+='</button></div>';
