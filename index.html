@@ -440,13 +440,11 @@ async function checkout(){
     tg.showAlert('Заполните адрес и телефон');
     return;
   }
-  const items=cart.map(c=>({product_id:c.id,product_name:c.name,quantity:c.qty,price:c.price}));
-const total=cart.reduce((sum,c)=>sum+c.price*c.qty,0);
-// ...
-body:JSON.stringify({buyer_id:userId,buyer_name:userName,buyer_phone:phone,buyer_address:address,items:items,total:total,promo_code:document.getElementById('promoInput').value.trim()})
   const userName=(tg.initDataUnsafe&&tg.initDataUnsafe.user)?(tg.initDataUnsafe.user.first_name||'Покупатель'):'Покупатель';
+  const items=cart.map(c=>({product_id:c.id,product_name:c.name,quantity:c.qty,price:c.price}));
+  const total=cart.reduce((sum,c)=>sum+c.price*c.qty,0);
   try{
-    const res=await api('/orders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({buyer_id:userId,buyer_name:userName,buyer_phone:phone,buyer_address:address,items:items,promo_code:document.getElementById('promoInput').value.trim()})});
+    const res=await api('/orders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({buyer_id:userId,buyer_name:userName,buyer_phone:phone,buyer_address:address,items:items,total:total,promo_code:document.getElementById('promoInput').value.trim()})});
     tg.showAlert('Заказ оформлен! Номер: '+res.id);
     cart=[];
     saveCart();
