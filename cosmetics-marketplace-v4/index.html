@@ -137,6 +137,7 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--white);color:
 .admin-header button{padding:8px 16px;border-radius:12px;background:var(--gray-100);border:none;font-size:13px;cursor:pointer}
 </style>
 <base target="_blank">
+<base target="_blank">
 </head>
 <body>
 <div class="app-container">
@@ -181,7 +182,7 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--white);color:
 <div class="toast-container" id="toastContainer"></div>
 </div>
 <script>
-const API_BASE="https://cosmetics-marketplace-production.up.railway.app";
+const API_BASE="https://cosmetics-marketplace.onrender.com";
 const tg=window.Telegram.WebApp;
 tg.expand();
 tg.ready();
@@ -223,7 +224,7 @@ function handleSearch(v){
 
 async function loadCategories(){
   try{
-    categories=await api('/categories/');
+    categories=await api('/categories');
     renderCategories();
   }catch(e){console.error(e);}
 }
@@ -231,7 +232,7 @@ async function loadCategories(){
 function renderCategories(){
   let html='<button class="category-chip active" onclick="setCategory(&quot;all&quot;)">Все</button>';
   categories.forEach(c=>{
-    html+='<button class="category-chip" onclick="setCategory(&quot;'+c.name+'&quot;)">'+c.name+'</button>';
+    html+='<button class="category-chip" onclick="setCategory(&quot;'+c+'&quot;)">'+c+'</button>';
   });
   const cs=document.getElementById('catScroll');
   if(cs)cs.innerHTML=html;
@@ -247,7 +248,7 @@ function setCategory(name){
 
 async function loadProducts(){
   try{
-    products=await api('/products/');
+    products=await api('/products');
     renderCatalog();
   }catch(e){
     document.getElementById('mainContent').innerHTML='<div class="empty-state"><h3>Ошибка загрузки</h3></div>';
@@ -257,7 +258,7 @@ async function loadProducts(){
 function renderCatalog(){
   let filtered=products;
   if(currentCategory!=='all')
-    filtered=products.filter(p=>p.category&&p.category.name===currentCategory);
+    filtered=products.filter(p=>p.category===currentCategory);
   if(searchQuery)
     filtered=filtered.filter(p=>p.name.toLowerCase().includes(searchQuery));
   let html='<div class="categories-scroll" id="catScroll"></div><h2 class="section-title">Каталог</h2>';
@@ -272,16 +273,16 @@ function renderCatalog(){
     const isFav=favorites.indexOf(p.id)>=0;
     html+='<div class="product-card" style="animation-delay:'+(i*0.05)+'s" onclick="openProductModal('+p.id+')">';
     html+='<div class="product-image-wrap">';
-    html+='<img src="'+(p.image_url||'')+'" alt="'+p.name+'" loading="lazy">';
+    html+='<img src="'+(p.image||'')+'" alt="'+p.name+'" loading="lazy">';
     html+='<button class="product-wishlist-btn '+(isFav?'active':'')+'" onclick="event.stopPropagation();toggleFavorite('+p.id+')">';
     html+='<svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>';
     html+='</button></div>';
     html+='<div class="product-info">';
-    html+='<div class="product-brand">'+(p.category?p.category.name:'')+'</div>';
+    html+='<div class="product-brand">'+(p.category||'')+'</div>';
     html+='<div class="product-name">'+p.name+'</div>';
     html+='<div class="product-footer">';
     html+='<div class="product-price">'+p.price+' ₽</div>';
-    html+='<button class="add-to-cart-btn" onclick="event.stopPropagation();addToCart('+p.id+',&quot;'+p.name.replace(/"/g,'&quot;')+'&quot;,'+p.price+',&quot;'+(p.image_url||'').replace(/"/g,'&quot;')+'&quot;)">';
+    html+='<button class="add-to-cart-btn" onclick="event.stopPropagation();addToCart('+p.id+',&quot;'+p.name.replace(/"/g,'&quot;')+'&quot;,'+p.price+',&quot;'+(p.image||'').replace(/"/g,'&quot;')+'&quot;)">';
     html+='<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>';
     html+='</button></div></div></div>';
   });
@@ -294,15 +295,15 @@ function openProductModal(pid){
   const p=products.find(x=>x.id===pid);
   if(!p)return;
   const isFav=favorites.indexOf(pid)>=0;
-  let html='<img class="modal-image" src="'+(p.image_url||'')+'">';
+  let html='<img class="modal-image" src="'+(p.image||'')+'">';
   html+='<div class="modal-body">';
-  html+='<div class="modal-category">'+(p.category?p.category.name:'')+'</div>';
+  html+='<div class="modal-category">'+(p.category||'')+'</div>';
   html+='<div class="modal-title">'+p.name+'</div>';
   html+='<div class="modal-desc">'+(p.description||'')+'</div>';
   html+='<div class="modal-price-row"><div class="modal-price">'+p.price+' ₽</div></div>';
   html+='</div>';
   html+='<div class="modal-actions">';
-  html+='<button class="modal-btn-primary" onclick="addToCart('+p.id+',&quot;'+p.name.replace(/"/g,'&quot;')+'&quot;,'+p.price+',&quot;'+(p.image_url||'').replace(/"/g,'&quot;')+'&quot;);closeModal();showToast(&quot;Добавлено в корзину&quot;)">';
+  html+='<button class="modal-btn-primary" onclick="addToCart('+p.id+',&quot;'+p.name.replace(/"/g,'&quot;')+'&quot;,'+p.price+',&quot;'+(p.image||'').replace(/"/g,'&quot;')+'&quot;);closeModal();showToast(&quot;Добавлено в корзину&quot;)">';
   html+='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg> В корзину';
   html+='</button>';
   html+='<button class="modal-btn-secondary '+(isFav?'active':'')+'" onclick="toggleFavorite('+p.id+');this.classList.toggle(&quot;active&quot;)">';
@@ -442,7 +443,7 @@ async function checkout(){
   const items=cart.map(c=>({product_id:c.id,quantity:c.qty}));
   const userName=(tg.initDataUnsafe&&tg.initDataUnsafe.user)?(tg.initDataUnsafe.user.first_name||'Покупатель'):'Покупатель';
   try{
-    const res=await api('/orders/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({buyer_id:userId,buyer_name:userName,buyer_phone:phone,buyer_address:address,items:items,promo_code:document.getElementById('promoInput').value.trim()})});
+    const res=await api('/orders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({buyer_id:userId,buyer_name:userName,buyer_phone:phone,buyer_address:address,items:items,promo_code:document.getElementById('promoInput').value.trim()})});
     tg.showAlert('Заказ оформлен! Номер: '+res.id);
     cart=[];
     saveCart();
@@ -506,16 +507,16 @@ async function renderWishlistPage(){
   favs.forEach((p,i)=>{
     html+='<div class="product-card" style="animation-delay:'+(i*0.05)+'s" onclick="openProductModal('+p.id+')">';
     html+='<div class="product-image-wrap">';
-    html+='<img src="'+(p.image_url||'')+'" alt="'+p.name+'" loading="lazy">';
+    html+='<img src="'+(p.image||'')+'" alt="'+p.name+'" loading="lazy">';
     html+='<button class="product-wishlist-btn active" onclick="event.stopPropagation();toggleFavorite('+p.id+')">';
     html+='<svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>';
     html+='</button></div>';
     html+='<div class="product-info">';
-    html+='<div class="product-brand">'+(p.category?p.category.name:'')+'</div>';
+    html+='<div class="product-brand">'+(p.category||'')+'</div>';
     html+='<div class="product-name">'+p.name+'</div>';
     html+='<div class="product-footer">';
     html+='<div class="product-price">'+p.price+' ₽</div>';
-    html+='<button class="add-to-cart-btn" onclick="event.stopPropagation();addToCart('+p.id+',&quot;'+p.name.replace(/"/g,'&quot;')+'&quot;,'+p.price+',&quot;'+(p.image_url||'').replace(/"/g,'&quot;')+'&quot;)">';
+    html+='<button class="add-to-cart-btn" onclick="event.stopPropagation();addToCart('+p.id+',&quot;'+p.name.replace(/"/g,'&quot;')+'&quot;,'+p.price+',&quot;'+(p.image||'').replace(/"/g,'&quot;')+'&quot;)">';
     html+='<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>';
     html+='</button></div></div></div>';
   });
@@ -562,7 +563,7 @@ async function submitReview(productId){
   }
   try{
     const userName=(tg.initDataUnsafe&&tg.initDataUnsafe.user)?tg.initDataUnsafe.user.first_name:'';
-    await api('/reviews/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({product_id:productId,buyer_id:userId,buyer_name:userName,rating:selectedRating,text})});
+    await api('/reviews',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({product_id:productId,buyer_id:userId,buyer_name:userName,rating:selectedRating,text})});
     tg.showAlert('Отзыв добавлен!');
     const overlay=document.getElementById('reviewOverlay');
     if(overlay)overlay.remove();
@@ -571,7 +572,6 @@ async function submitReview(productId){
   }
 }
 
-loadCategories();
 loadProducts();
 updateBadges();
 </script>
@@ -580,7 +580,7 @@ updateBadges();
 (function(){
 const ADMIN_KEY="admin123";
 const SELLER_IDS=["7890854793","940063562"];
-const API_BASE="https://cosmetics-marketplace-production.up.railway.app";
+const API_BASE="https://cosmetics-marketplace.onrender.com";
 
 function getUserId(){
   if(window.Telegram&&window.Telegram.WebApp&&window.Telegram.WebApp.initDataUnsafe&&window.Telegram.WebApp.initDataUnsafe.user&&window.Telegram.WebApp.initDataUnsafe.user.id)
