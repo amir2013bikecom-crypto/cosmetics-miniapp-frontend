@@ -132,6 +132,46 @@ async def send_telegram_message(chat_id: int, text: str, reply_markup: dict = No
 async def startup():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    
+    # Автозаполнение если база пуста
+    async with async_session() as session:
+        result = await session.execute(select(Product))
+        if not result.scalars().all():
+            cats = ["Уход за лицом", "Уход за волосами", "Макияж", "Парфюмерия", "Уход за телом"]
+            for c in cats:
+                exists = await session.execute(select(Category).where(Category.name == c))
+                if not exists.scalar_one_or_none():
+                    session.add(Category(name=c))
+            await session.commit()
+            
+            cat_result = await session.execute(select(Category))
+            cat_map = {c.name: c.id for c in cat_result.scalars().all()}
+            
+            sample_products = [
+                ("Гидрофильное масло", "Нежное очищение кожи", 1290, "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=400&q=80", cat_map.get("Уход за лицом")),
+                ("Витаминная сыворотка C10", "Антиоксидантная защита", 1890, "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=400&q=80", cat_map.get("Уход за лицом")),
+                ("Восстанавливающий шампунь", "Для сухих волос", 890, "https://images.unsplash.com/photo-1527799820374-dcf8d9d4a388?w=400&q=80", cat_map.get("Уход за волосами")),
+                ("Маска для волос", "Глубокое питание", 1150, "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400&q=80", cat_map.get("Уход за волосами")),
+                ("Тональный кушон", "Лёгкое покрытие", 1590, "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=400&q=80", cat_map.get("Макияж")),
+                ("Матовая помада", "Стойкий цвет", 790, "https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=400&q=80", cat_map.get("Макияж")),
+                ("Парфюм Floral", "Нежный цветочный аромат", 3490, "https://images.unsplash.com/photo-1541643600914-78b084683601?w=400&q=80", cat_map.get("Парфюмерия")),
+                ("Парфюм Woody", "Древесные ноты", 4290, "https://images.unsplash.com/photo-1594035910387-fea47794261f?w=400&q=80", cat_map.get("Парфюмерия")),
+                ("Скраб для тела", "Кофейный скраб", 690, "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=400&q=80", cat_map.get("Уход за телом")),
+                ("Крем для рук", "Питательный крем", 450, "https://images.unsplash.com/photo-1596755389378-c31d21fd1273?w=400&q=80", cat_map.get("Уход за телом")),
+            ]
+            for name, desc, price, img, cat_id in sample_products:
+                exists = await session.execute(select(Product).where(Product.name == name))
+                if not exists.scalar_one_or_none():
+                    session.add(Product(name=name, description=desc, price=price, image_url=img, category_id=cat_id, stock=100))
+            
+            promo_codes = [("WELCOME10", 10), ("SUMMER20", 20), ("VIP30", 30)]
+            for code, discount in promo_codes:
+                exists = await session.execute(select(PromoCode).where(PromoCode.code == code))
+                if not exists.scalar_one_or_none():
+                    session.add(PromoCode(code=code, discount_percent=discount, active=1))
+            
+            await session.commit()
+            print("✅ SEED: Товары добавлены автоматически")
 
 @app.get("/health")
 async def health():
