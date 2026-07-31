@@ -7,10 +7,10 @@ from sqlalchemy.sql import func
 from pydantic import BaseModel
 from typing import List, Optional
 import os
-import asyncio
 import aiohttp
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://postgres:postgres@localhost:5432/postgres")
+# ===== DATABASE =====
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./app.db")
 if DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
 if "?sslmode=require" in DATABASE_URL:
@@ -25,7 +25,6 @@ class Category(Base):
     __tablename__ = "categories"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
-    description = Column(Text, nullable=True)
 
 class Product(Base):
     __tablename__ = "products"
@@ -33,10 +32,12 @@ class Product(Base):
     name = Column(String, index=True)
     description = Column(Text)
     price = Column(Float)
-    image_url = Column(String)
-    category_id = Column(Integer, ForeignKey("categories.id"))
-    stock = Column(Integer, default=0)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    old_price = Column(Float, nullable=True)
+    image = Column(String)
+    category = Column(String)
+    rating = Column(Float, default=0)
+    reviews_count = Column(Integer, default=0)
+    stock = Column(Integer, default=100)
 
 class Order(Base):
     __tablename__ = "orders"
@@ -79,7 +80,9 @@ class PromoCode(Base):
 # ===== PYDANTIC SCHEMAS =====
 class OrderItemIn(BaseModel):
     product_id: int
+    product_name: str
     quantity: int
+    price: float
 
 class OrderIn(BaseModel):
     buyer_id: str
@@ -87,6 +90,7 @@ class OrderIn(BaseModel):
     buyer_phone: str
     buyer_address: str
     items: List[OrderItemIn]
+    total: float
     promo_code: Optional[str] = None
 
 class StatusUpdate(BaseModel):
@@ -128,6 +132,7 @@ async def send_telegram_message(chat_id: int, text: str, reply_markup: dict = No
     except Exception:
         pass
 
+# ===== AUTOSTART: SEED PRODUCTS =====
 @app.on_event("startup")
 async def startup():
     async with engine.begin() as conn:
@@ -137,106 +142,58 @@ async def startup():
     async with async_session() as session:
         result = await session.execute(select(Product))
         if not result.scalars().all():
-            cats = ["Уход за лицом", "Уход за волосами", "Макияж", "Парфюмерия", "Уход за телом"]
-            for c in cats:
-                exists = await session.execute(select(Category).where(Category.name == c))
-                if not exists.scalar_one_or_none():
-                    session.add(Category(name=c))
-            await session.commit()
-            
-            cat_result = await session.execute(select(Category))
-            cat_map = {c.name: c.id for c in cat_result.scalars().all()}
-            
-            sample_products = [
-                ("Гидрофильное масло", "Нежное очищение кожи", 1290, "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=400&q=80", cat_map.get("Уход за лицом")),
-                ("Витаминная сыворотка C10", "Антиоксидантная защита", 1890, "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=400&q=80", cat_map.get("Уход за лицом")),
-                ("Восстанавливающий шампунь", "Для сухих волос", 890, "https://images.unsplash.com/photo-1527799820374-dcf8d9d4a388?w=400&q=80", cat_map.get("Уход за волосами")),
-                ("Маска для волос", "Глубокое питание", 1150, "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400&q=80", cat_map.get("Уход за волосами")),
-                ("Тональный кушон", "Лёгкое покрытие", 1590, "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=400&q=80", cat_map.get("Макияж")),
-                ("Матовая помада", "Стойкий цвет", 790, "https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=400&q=80", cat_map.get("Макияж")),
-                ("Парфюм Floral", "Нежный цветочный аромат", 3490, "https://images.unsplash.com/photo-1541643600914-78b084683601?w=400&q=80", cat_map.get("Парфюмерия")),
-                ("Парфюм Woody", "Древесные ноты", 4290, "https://images.unsplash.com/photo-1594035910387-fea47794261f?w=400&q=80", cat_map.get("Парфюмерия")),
-                ("Скраб для тела", "Кофейный скраб", 690, "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=400&q=80", cat_map.get("Уход за телом")),
-                ("Крем для рук", "Питательный крем", 450, "https://images.unsplash.com/photo-1596755389378-c31d21fd1273?w=400&q=80", cat_map.get("Уход за телом")),
+            sample = [
+                {"name":"Гидрофильное масло","category":"Уход за лицом","price":890,"old_price":1200,"image":"https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=400","description":"Глубокое очищение кожи","rating":4.8,"reviews_count":124},
+                {"name":"Сыворотка с витамином C","category":"Уход за лицом","price":1290,"old_price":1590,"image":"https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=400","description":"Осветление и выравнивание тона","rating":4.9,"reviews_count":89},
+                {"name":"Матовая помада","category":"Макияж","price":650,"old_price":890,"image":"https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=400","description":"Стойкий цвет на 12 часов","rating":4.7,"reviews_count":256},
             ]
-            for name, desc, price, img, cat_id in sample_products:
-                exists = await session.execute(select(Product).where(Product.name == name))
-                if not exists.scalar_one_or_none():
-                    session.add(Product(name=name, description=desc, price=price, image_url=img, category_id=cat_id, stock=100))
-            
-            promo_codes = [("WELCOME10", 10), ("SUMMER20", 20), ("VIP30", 30)]
-            for code, discount in promo_codes:
-                exists = await session.execute(select(PromoCode).where(PromoCode.code == code))
-                if not exists.scalar_one_or_none():
-                    session.add(PromoCode(code=code, discount_percent=discount, active=1))
-            
+            for p in sample:
+                session.add(Product(**p))
             await session.commit()
             print("✅ SEED: Товары добавлены автоматически")
+
+@app.get("/")
+async def root():
+    return {"message": "Мир Косметики API", "status": "ok"}
 
 @app.get("/health")
 async def health():
     return {"status": "ok"}
 
-@app.get("/api/v1/products/")
+@app.get("/api/v1/products")
 async def list_products(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Product))
     rows = result.scalars().all()
-    out = []
-    for p in rows:
-        cat = await db.execute(select(Category).where(Category.id == p.category_id))
-        c = cat.scalar_one_or_none()
-        out.append({
-            "id": p.id, "name": p.name, "description": p.description,
-            "price": p.price, "image_url": p.image_url, "stock": p.stock,
-            "category": {"name": c.name} if c else None
-        })
-    return out
+    return [{"id":p.id,"name":p.name,"category":p.category,"price":p.price,"old_price":p.old_price,"image":p.image,"description":p.description,"rating":p.rating,"reviews_count":p.reviews_count} for p in rows]
 
-@app.get("/api/v1/categories/")
+@app.get("/api/v1/categories")
 async def list_categories(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Category))
-    return [{"id": c.id, "name": c.name, "description": c.description} for c in result.scalars().all()]
+    result = await db.execute(select(Product.category).distinct())
+    return [c[0] for c in result.all() if c[0]]
 
-@app.post("/api/v1/orders/")
+@app.post("/api/v1/orders")
 async def create_order(data: OrderIn, db: AsyncSession = Depends(get_db)):
-    total = 0
-    for it in data.items:
-        prod = await db.get(Product, it.product_id)
-        if prod:
-            total += prod.price * it.quantity
-
-    discount = 0
-    if data.promo_code:
-        promo = await db.execute(select(PromoCode).where(PromoCode.code == data.promo_code, PromoCode.active == 1))
-        p = promo.scalar_one_or_none()
-        if p:
-            discount = total * (p.discount_percent / 100)
-
-    total = max(0, total - discount)
-
     order = Order(
         buyer_id=data.buyer_id, buyer_name=data.buyer_name,
         buyer_phone=data.buyer_phone, buyer_address=data.buyer_address,
-        total=total, status="pending", promo_code=data.promo_code
+        total=data.total, status="pending", promo_code=data.promo_code
     )
     db.add(order)
     await db.flush()
 
     for it in data.items:
-        prod = await db.get(Product, it.product_id)
-        if prod:
-            db.add(OrderItem(
-                order_id=order.id, product_id=it.product_id,
-                product_name=prod.name, quantity=it.quantity, price=prod.price
-            ))
+        db.add(OrderItem(
+            order_id=order.id, product_id=it.product_id,
+            product_name=it.product_name, quantity=it.quantity, price=it.price
+        ))
 
     await db.commit()
 
     for sid in SELLERS:
-        text = f"🛒 <b>Новый заказ #{order.id}</b>\nСумма: {total} ₽\nПокупатель: {data.buyer_name}\nТел: {data.buyer_phone}"
+        text = f"🛒 <b>Новый заказ #{order.id}</b>\nСумма: {data.total} ₽\nПокупатель: {data.buyer_name}\nТел: {data.buyer_phone}"
         await send_telegram_message(sid, text)
 
-    return {"id": order.id, "total": total, "status": "pending"}
+    return {"success": True, "id": order.id, "total": data.total, "status": "pending"}
 
 @app.get("/api/v1/orders/{buyer_id}")
 async def buyer_orders(buyer_id: str, db: AsyncSession = Depends(get_db)):
@@ -256,7 +213,6 @@ async def buyer_orders(buyer_id: str, db: AsyncSession = Depends(get_db)):
         })
     return out
 
-# ===== ИСПРАВЛЕННЫЙ ENDPOINT: /admin/orders вместо /orders/all =====
 @app.get("/api/v1/admin/orders")
 async def admin_orders(x_seller_key: str = Header(""), db: AsyncSession = Depends(get_db)):
     if x_seller_key != SELLER_KEY:
@@ -288,19 +244,17 @@ async def update_status(order_id: int, data: StatusUpdate, x_seller_key: str = H
     await db.commit()
 
     if data.status == "shipped":
-        text = f"📦 Ваш заказ #{order_id} отправлен! Ожидайте доставку."
-        keyboard = {"inline_keyboard": [[{"text": "✅ Получил", "callback_data": f"buyer_received_{order_id}"}, {"text": "❌ Не получил", "callback_data": f"buyer_notreceived_{order_id}"}]]}
+        text = f"📦 Ваш заказ #{order_id} отправлен!"
+        keyboard = {"inline_keyboard": [[{"text": "✅ Получил", "callback_data": f"received_{order_id}"}, {"text": "❌ Не получил", "callback_data": f"notreceived_{order_id}"}]]}
         await send_telegram_message(int(order.buyer_id), text, keyboard)
     elif data.status == "cancelled":
-        await send_telegram_message(int(order.buyer_id), f"❌ Заказ #{order_id} отменён продавцом.")
+        await send_telegram_message(int(order.buyer_id), f"❌ Заказ #{order_id} отменён.")
     elif data.status == "delivered":
-        await send_telegram_message(int(order.buyer_id), f"✅ Заказ #{order_id} доставлен! Спасибо за покупку.")
-        for sid in SELLERS:
-            await send_telegram_message(sid, f"✅ Заказ #{order_id} доставлен покупателю.")
+        await send_telegram_message(int(order.buyer_id), f"✅ Заказ #{order_id} доставлен! Спасибо.")
 
     return {"id": order.id, "status": order.status}
 
-@app.post("/api/v1/reviews/")
+@app.post("/api/v1/reviews")
 async def create_review(data: ReviewIn, db: AsyncSession = Depends(get_db)):
     review = Review(**data.dict())
     db.add(review)
@@ -322,43 +276,18 @@ async def validate_promo(data: PromoValidate, db: AsyncSession = Depends(get_db)
 
 @app.post("/api/v1/seed")
 async def seed(db: AsyncSession = Depends(get_db)):
-    cats = ["Уход за лицом", "Уход за волосами", "Макияж", "Парфюмерия", "Уход за телом"]
-    for c in cats:
-        exists = await db.execute(select(Category).where(Category.name == c))
-        if not exists.scalar_one_or_none():
-            db.add(Category(name=c))
-    await db.commit()
-
-    cat_result = await db.execute(select(Category))
-    cat_map = {c.name: c.id for c in cat_result.scalars().all()}
-
-    sample_products = [
-        ("Гидрофильное масло", "Нежное очищение кожи", 1290, "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=400&q=80", cat_map.get("Уход за лицом")),
-        ("Витаминная сыворотка C10", "Антиоксидантная защита", 1890, "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=400&q=80", cat_map.get("Уход за лицом")),
-        ("Восстанавливающий шампунь", "Для сухих волос", 890, "https://images.unsplash.com/photo-1527799820374-dcf8d9d4a388?w=400&q=80", cat_map.get("Уход за волосами")),
-        ("Маска для волос", "Глубокое питание", 1150, "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400&q=80", cat_map.get("Уход за волосами")),
-        ("Тональный кушон", "Лёгкое покрытие", 1590, "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=400&q=80", cat_map.get("Макияж")),
-        ("Матовая помада", "Стойкий цвет", 790, "https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=400&q=80", cat_map.get("Макияж")),
-        ("Парфюм Floral", "Нежный цветочный аромат", 3490, "https://images.unsplash.com/photo-1541643600914-78b084683601?w=400&q=80", cat_map.get("Парфюмерия")),
-        ("Парфюм Woody", "Древесные ноты", 4290, "https://images.unsplash.com/photo-1594035910387-fea47794261f?w=400&q=80", cat_map.get("Парфюмерия")),
-        ("Скраб для тела", "Кофейный скраб", 690, "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=400&q=80", cat_map.get("Уход за телом")),
-        ("Крем для рук", "Питательный крем", 450, "https://images.unsplash.com/photo-1596755389378-c31d21fd1273?w=400&q=80", cat_map.get("Уход за телом")),
+    sample = [
+        {"name":"Гидрофильное масло","category":"Уход за лицом","price":890,"old_price":1200,"image":"https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=400","description":"Глубокое очищение кожи","rating":4.8,"reviews_count":124},
+        {"name":"Сыворотка с витамином C","category":"Уход за лицом","price":1290,"old_price":1590,"image":"https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=400","description":"Осветление и выравнивание тона","rating":4.9,"reviews_count":89},
+        {"name":"Матовая помада","category":"Макияж","price":650,"old_price":890,"image":"https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=400","description":"Стойкий цвет на 12 часов","rating":4.7,"reviews_count":256},
     ]
-
-    for name, desc, price, img, cat_id in sample_products:
-        exists = await db.execute(select(Product).where(Product.name == name))
+    for p in sample:
+        exists = await db.execute(select(Product).where(Product.name == p["name"]))
         if not exists.scalar_one_or_none():
-            db.add(Product(name=name, description=desc, price=price, image_url=img, category_id=cat_id, stock=100))
-
-    promo_codes = [("WELCOME10", 10), ("SUMMER20", 20), ("VIP30", 30)]
-    for code, discount in promo_codes:
-        exists = await db.execute(select(PromoCode).where(PromoCode.code == code))
-        if not exists.scalar_one_or_none():
-            db.add(PromoCode(code=code, discount_percent=discount, active=1))
-
+            db.add(Product(**p))
     await db.commit()
-    return {"detail": "База заполнена"}
-    
+    return {"message": "Seeded 3 products"}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
