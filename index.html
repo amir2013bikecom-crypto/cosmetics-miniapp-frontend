@@ -727,15 +727,23 @@ updateBadges();
       const nav = document.querySelector('.bottom-nav');
       if (nav) nav.style.display = 'flex';
     },
-
     attachLoginEvents: function () {
-      const btn = document.getElementById('adminLoginBtn');
-      if (btn) {
-        btn.onclick = function () {
-          Admin.showOrders();
-        };
+  const btn = document.getElementById('adminLoginBtn');
+  if (btn) {
+    btn.onclick = function () {
+      const key = document.getElementById('adminKeyInput').value.trim();
+      if (key === 'admin123') {
+        localStorage.setItem('mk_admin', 'true');
+        Admin.showOrders();
+      } else {
+        const err = document.getElementById('adminError');
+        if (err) err.style.display = 'block';
       }
-    },
+    };
+  }
+},
+
+
 
     attachOrderEvents: function () {
       const logoutBtn = document.getElementById('adminLogoutBtn');
@@ -757,8 +765,8 @@ updateBadges();
       });
     },
 
-    loadOrders: function () {
-      fetch(API_BASE + '/api/v1/admin/orders', { headers: telegramAuthHeaders() })
+  loadOrders: function () {
+  fetch(API_BASE + '/api/v1/admin/orders', { headers: { 'X-Seller-Key': 'admin123' } })
         .then(function (res) { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
         .then(function (orders) {
           const main = document.getElementById('mainContent');
@@ -772,22 +780,22 @@ updateBadges();
         });
     },
 
-    updateStatus: function (orderId, status) {
-      fetch(API_BASE + '/api/v1/orders/' + orderId + '/status', {
-        method: 'PATCH',
-        headers: Object.assign({ 'Content-Type': 'application/json' }, telegramAuthHeaders()),
+updateStatus: function (orderId, status) {
+  fetch(API_BASE + '/api/v1/orders/' + orderId + '/status', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', 'X-Seller-Key': 'admin123' },
         body: JSON.stringify({ status: status })
       })
         .then(function (res) { if (res.ok) { Admin.loadOrders(); } else { tg.showAlert('Ошибка обновления статуса'); } })
         .catch(function (e) { tg.showAlert('Ошибка сервера'); });
     },
 
-    shipOrder: function (orderId) {
-      const track = prompt('Введите трек-номер (можно оставить пустым):');
-      if (track === null) return;
-      fetch(API_BASE + '/api/v1/orders/' + orderId + '/track', {
-        method: 'PATCH',
-        headers: Object.assign({ 'Content-Type': 'application/json' }, telegramAuthHeaders()),
+   shipOrder: function (orderId) {
+  const track = prompt('Введите трек-номер (можно оставить пустым):');
+  if (track === null) return;
+  fetch(API_BASE + '/api/v1/orders/' + orderId + '/track', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', 'X-Seller-Key': 'admin123' },
         body: JSON.stringify({ track_number: track || '' })
       })
         .then(function (res) { if (res.ok) { Admin.loadOrders(); } else { tg.showAlert('Ошибка обновления трека'); } })
