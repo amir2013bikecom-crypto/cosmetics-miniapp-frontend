@@ -784,23 +784,36 @@ updateStatus: function (orderId, status) {
   fetch(API_BASE + '/api/v1/orders/' + orderId + '/status', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', 'X-Seller-Key': 'admin123' },
-        body: JSON.stringify({ status: status })
-      })
-        .then(function (res) { if (res.ok) { Admin.loadOrders(); } else { tg.showAlert('Ошибка обновления статуса'); } })
-        .catch(function (e) { tg.showAlert('Ошибка сервера'); });
-    },
+    body: JSON.stringify({ status: status })
+  })
+  .then(function (res) { 
+    if (res.ok) { 
+      Admin.loadOrders(); 
+    } else { 
+      res.text().then(function(text){ tg.showAlert('Ошибка: ' + text); });
+    } 
+  })
+  .catch(function (e) { tg.showAlert('Ошибка сервера: ' + e.message); });
+},
 
-   shipOrder: function (orderId) {
-  const track = prompt('Введите трек-номер (можно оставить пустым):');
+shipOrder: function (orderId) {
+  const track = prompt('Введите трек-номер:');
   if (track === null) return;
+  if (!track.trim()) { tg.showAlert('Введите трек-номер'); return; }
   fetch(API_BASE + '/api/v1/orders/' + orderId + '/track', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', 'X-Seller-Key': 'admin123' },
-        body: JSON.stringify({ track_number: track || '' })
-      })
-        .then(function (res) { if (res.ok) { Admin.loadOrders(); } else { tg.showAlert('Ошибка обновления трека'); } })
-        .catch(function (e) { tg.showAlert('Ошибка сервера'); });
-    },
+    body: JSON.stringify({ track_number: track.trim() })
+  })
+  .then(function (res) { 
+    if (res.ok) { 
+      Admin.loadOrders(); 
+    } else { 
+      res.text().then(function(text){ tg.showAlert('Ошибка: ' + text); });
+    } 
+  })
+  .catch(function (e) { tg.showAlert('Ошибка сервера: ' + e.message); });
+},
 
     logout: function () {
       localStorage.removeItem('mk_admin');
