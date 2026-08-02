@@ -1,8 +1,12 @@
 import os
 import logging
+import hashlib
+import hmac
+import json
 from typing import Optional, List
 from datetime import datetime, timezone
 from contextlib import asynccontextmanager
+from urllib.parse import parse_qsl
 
 from fastapi import FastAPI, HTTPException, Header, Request, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,6 +30,8 @@ SELLER_IDS = [int(x.strip()) for x in os.getenv("SELLER_IDS", "").split(",") if 
 SELLER_API_KEY = os.getenv("SELLER_API_KEY", "")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "")
 WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")
+TELEGRAM_AUTH_MAX_AGE_SECONDS = int(os.getenv("TELEGRAM_AUTH_MAX_AGE_SECONDS", "86400"))
+DELIVERY_COSTS = {"courier": 300.0, "sdek": 250.0, "post": 200.0}
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -96,19 +102,14 @@ async def init_db():
 # ─── PYDANTIC SCHEMAS ───────────────────────────────────────────────
 class OrderItemIn(BaseModel):
     product_id: int
-    product_name: str
     quantity: int = Field(..., ge=1)
-    price: float = Field(..., ge=0)
 
 class OrderCreate(BaseModel):
-    buyer_id: str
     buyer_name: Optional[str] = ""
     buyer_phone: Optional[str] = ""
     buyer_address: Optional[str] = ""
     items: List[OrderItemIn]
-    total: float = Field(..., ge=0)
     delivery_method: Optional[str] = "courier"
-    delivery_cost: Optional[float] = 0.0
 
     @validator("buyer_phone")
     def validate_phone(cls, v):
@@ -117,6 +118,12 @@ class OrderCreate(BaseModel):
         return v
 
 VALID_STATUSES = {"pending", "shipped", "delivered", "cancelled"}
+VALID_STATUS_TRANSITIONS = {
+    "pending": {"shipped", "cancelled"},
+    "shipped": {"delivered", "cancelled"},
+    "delivered": set(),
+    "cancelled": set(),
+}
 
 class StatusUpdate(BaseModel):
     status: str
@@ -128,7 +135,7 @@ class StatusUpdate(BaseModel):
         return v
 
 class TrackUpdate(BaseModel):
-    track_number: str = Field(..., min_length=3)
+    track_number: str = Field(..., min_length=1)
 
 class ReviewCreate(BaseModel):
     product_id: int
@@ -193,6 +200,47 @@ async def verify_seller(x_seller_key: Optional[str] = Header(None)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid seller key")
     return x_seller_key
 
+async def get_telegram_user(
+    x_telegram_init_data: Optional[str] = Header(None),
+) -> dict:
+    if not BOT_TOKEN:
+        raise HTTPException(status_code=503, detail="Telegram authentication is not configured")
+    if not x_telegram_init_data:
+        raise HTTPException(status_code=401, detail="Missing Telegram init data")
+
+    values = dict(parse_qsl(x_telegram_init_data, keep_blank_values=True))
+    received_hash = values.pop("hash", None)
+    if not received_hash or "auth_date" not in values or "user" not in values:
+        raise HTTPException(status_code=401, detail="Invalid Telegram init data")
+
+    data_check_string = "\n".join(f"{key}={values[key]}" for key in sorted(values))
+    secret_key = hmac.new(b"WebAppData", BOT_TOKEN.encode(), hashlib.sha256).digest()
+    expected_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected_hash, received_hash):
+        raise HTTPException(status_code=401, detail="Invalid Telegram init data")
+
+    try:
+        auth_date = int(values["auth_date"])
+        user = json.loads(values["user"])
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=401, detail="Invalid Telegram init data") from exc
+    if datetime.now(timezone.utc).timestamp() - auth_date > TELEGRAM_AUTH_MAX_AGE_SECONDS:
+        raise HTTPException(status_code=401, detail="Telegram session has expired")
+    if "id" not in user:
+        raise HTTPException(status_code=401, detail="Invalid Telegram user")
+    return user
+
+async def verify_seller_or_telegram(
+    x_seller_key: Optional[str] = Header(None),
+    x_telegram_init_data: Optional[str] = Header(None),
+) -> dict:
+    if x_seller_key and SELLER_API_KEY and hmac.compare_digest(x_seller_key, SELLER_API_KEY):
+        return {"id": "service"}
+    telegram_user = await get_telegram_user(x_telegram_init_data)
+    if str(telegram_user["id"]) not in {str(seller_id) for seller_id in SELLER_IDS}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Seller access required")
+    return telegram_user
+
 # ─── ENDPOINTS ──────────────────────────────────────────────────────
 @app.get("/")
 async def root():
@@ -213,31 +261,55 @@ async def get_products(session: AsyncSession = Depends(get_db)):
 @app.get("/api/v1/categories")
 async def get_categories(session: AsyncSession = Depends(get_db)):
     result = await session.execute(select(Product.category).distinct())
-    cats = [r[0] for r in result.all() if r[0]]
-    return cats
+    return [c[0] for c in result.all() if c[0]]
 
 @app.post("/api/v1/orders")
-async def create_order(order: OrderCreate, session: AsyncSession = Depends(get_db)):
+async def create_order(
+    order: OrderCreate,
+    telegram_user: dict = Depends(get_telegram_user),
+    session: AsyncSession = Depends(get_db),
+):
+    if not order.items:
+        raise HTTPException(status_code=422, detail="Order must contain at least one item")
+    if order.delivery_method not in DELIVERY_COSTS:
+        raise HTTPException(status_code=422, detail="Invalid delivery method")
+
+    product_ids = {item.product_id for item in order.items}
+    result = await session.execute(select(Product).where(Product.id.in_(product_ids)))
+    products = {product.id: product for product in result.scalars().all()}
+    missing_ids = product_ids.difference(products)
+    if missing_ids:
+        raise HTTPException(status_code=404, detail=f"Products not found: {sorted(missing_ids)}")
+
+    delivery_cost = DELIVERY_COSTS[order.delivery_method]
+    total = sum(products[item.product_id].price * item.quantity for item in order.items) + delivery_cost
     db_order = Order(
-        buyer_id=order.buyer_id, buyer_name=order.buyer_name,
+        buyer_id=str(telegram_user["id"]), buyer_name=telegram_user.get("first_name", ""),
         buyer_phone=order.buyer_phone, buyer_address=order.buyer_address,
-        total=order.total, status="pending",
+        total=total, status="pending",
         delivery_method=order.delivery_method,
-        delivery_cost=order.delivery_cost
+        delivery_cost=delivery_cost,
     )
     session.add(db_order)
     await session.flush()
     for item in order.items:
         session.add(OrderItem(
             order_id=db_order.id, product_id=item.product_id,
-            product_name=item.product_name, quantity=item.quantity, price=item.price
+            product_name=products[item.product_id].name,
+            quantity=item.quantity, price=products[item.product_id].price,
         ))
     await session.commit()
-    logger.info(f"Order #{db_order.id} created by buyer {order.buyer_id}")
-    return {"success": True, "order_id": db_order.id}
+    logger.info(f"Order #{db_order.id} created by buyer {telegram_user['id']}")
+    return {"success": True, "order_id": db_order.id, "total": total}
 
 @app.get("/api/v1/orders/{buyer_id}")
-async def get_orders(buyer_id: str, session: AsyncSession = Depends(get_db)):
+async def get_orders(
+    buyer_id: str,
+    telegram_user: dict = Depends(get_telegram_user),
+    session: AsyncSession = Depends(get_db),
+):
+    if buyer_id != str(telegram_user["id"]):
+        raise HTTPException(status_code=403, detail="You can only view your own orders")
     result = await session.execute(
         select(Order).where(Order.buyer_id == buyer_id)
         .order_by(desc(Order.created_at))
@@ -259,7 +331,7 @@ async def get_orders(buyer_id: str, session: AsyncSession = Depends(get_db)):
 @app.get("/api/v1/admin/orders")
 async def admin_orders(
     session: AsyncSession = Depends(get_db),
-    _: str = Depends(verify_seller)
+    _: dict = Depends(verify_seller_or_telegram)
 ):
     result = await session.execute(
         select(Order).order_by(desc(Order.created_at)).options(selectinload(Order.items))
@@ -282,12 +354,14 @@ async def update_status(
     order_id: int,
     update: StatusUpdate,
     session: AsyncSession = Depends(get_db),
-    _: str = Depends(verify_seller)
+    _: dict = Depends(verify_seller_or_telegram)
 ):
     result = await session.execute(select(Order).where(Order.id == order_id))
     order = result.scalar_one_or_none()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+    if update.status not in VALID_STATUS_TRANSITIONS[order.status]:
+        raise HTTPException(status_code=409, detail=f"Cannot change {order.status} order to {update.status}")
     order.status = update.status
     await session.commit()
     logger.info(f"Order #{order_id} status updated to {update.status}")
@@ -298,12 +372,14 @@ async def update_track(
     order_id: int,
     update: TrackUpdate,
     session: AsyncSession = Depends(get_db),
-    _: str = Depends(verify_seller)
+    _: dict = Depends(verify_seller_or_telegram)
 ):
     result = await session.execute(select(Order).where(Order.id == order_id))
     order = result.scalar_one_or_none()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+    if "shipped" not in VALID_STATUS_TRANSITIONS[order.status]:
+        raise HTTPException(status_code=409, detail=f"Cannot ship {order.status} order")
     order.track_number = update.track_number
     order.status = "shipped"
     await session.commit()
@@ -311,10 +387,17 @@ async def update_track(
     return {"success": True, "order_id": order.id, "track_number": order.track_number}
 
 @app.post("/api/v1/reviews")
-async def create_review(review: ReviewCreate, session: AsyncSession = Depends(get_db)):
+async def create_review(
+    review: ReviewCreate,
+    telegram_user: dict = Depends(get_telegram_user),
+    session: AsyncSession = Depends(get_db),
+):
+    product = await session.get(Product, review.product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
     db_review = Review(
-        product_id=review.product_id, buyer_id=review.buyer_id,
-        buyer_name=review.buyer_name, rating=review.rating, text=review.text
+        product_id=review.product_id, buyer_id=str(telegram_user["id"]),
+        buyer_name=telegram_user.get("first_name", ""), rating=review.rating, text=review.text
     )
     session.add(db_review)
     await session.commit()
@@ -346,7 +429,10 @@ async def telegram_webhook(request: Request):
     return {"ok": True}
 
 @app.post("/api/v1/seed")
-async def seed_data(session: AsyncSession = Depends(get_db)):
+async def seed_data(
+    session: AsyncSession = Depends(get_db),
+    _: dict = Depends(verify_seller_or_telegram),
+):
     result = await session.execute(select(Product))
     if result.scalars().first():
         return {"message": "Already seeded"}
@@ -358,76 +444,77 @@ async def seed_data(session: AsyncSession = Depends(get_db)):
         Product(name="Сыворотка с витамином C", category="Уход за лицом", price=1290, old_price=1590,
                 image="https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=400",
                 description="Осветление и выравнивание тона", rating=4.9, reviews_count=89),
+        Product(name="Крем для лица увлажняющий", category="Уход за лицом", price=750, old_price=950,
+                image="https://images.unsplash.com/photo-1570194065650-d99fb4b38b15?w=400",
+                description="24 часа увлажнения", rating=4.7, reviews_count=156),
+        Product(name="Тоник для лица", category="Уход за лицом", price=450, old_price=600,
+                image="https://images.unsplash.com/photo-1601049541289-9b1b7bbbfe19?w=400",
+                description="Сужение пор и баланс pH", rating=4.6, reviews_count=78),
+        Product(name="Патчи под глаза", category="Уход за лицом", price=590, old_price=790,
+                image="https://images.unsplash.com/photo-1596755389378-c31d21fd1273?w=400",
+                description="Устранение отёков и тёмных кругов", rating=4.5, reviews_count=203),
+        Product(name="Мицеллярная вода", category="Уход за лицом", price=490, old_price=650,
+                image="https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=400",
+                description="Мягкое очищение без смывания", rating=4.7, reviews_count=312),
         Product(name="Матовая помада", category="Макияж", price=650, old_price=890,
                 image="https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=400",
                 description="Стойкий цвет на 12 часов", rating=4.7, reviews_count=256),
-        Product(name="Крем для лица увлажняющий", category="Уход за лицом", price=1100, old_price=1450,
-                image="https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=400",
-                description="24 часа увлажнения", rating=4.6, reviews_count=178),
-        Product(name="Тоник для лица", category="Уход за лицом", price=450, old_price=590,
-                image="https://images.unsplash.com/photo-1601049541289-9b1b7bbbfe19?w=400",
-                description="Освежающий тоник", rating=4.5, reviews_count=92),
-        Product(name="Патчи под глаза", category="Уход за лицом", price=380, old_price=520,
-                image="https://images.unsplash.com/photo-1596755389378-c31d21fd1273?w=400",
-                description="Устранение отеков и темных кругов", rating=4.4, reviews_count=67),
-        Product(name="Мицеллярная вода", category="Уход за лицом", price=520, old_price=680,
-                image="https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=400",
-                description="Мягкое очищение", rating=4.7, reviews_count=203),
-        Product(name="Тушь для ресниц", category="Макияж", price=780, old_price=950,
-                image="https://images.unsplash.com/photo-1631214524020-7e18db9a8f92?w=400",
-                description="Объем и длина", rating=4.8, reviews_count=312),
-        Product(name="Кушон тональный", category="Макияж", price=1200, old_price=1550,
+        Product(name="Тушь для ресниц", category="Макияж", price=890, old_price=1100,
+                image="https://images.unsplash.com/photo-1631214524115-6f8eb1beb6b5?w=400",
+                description="Объём и удлинение", rating=4.8, reviews_count=312),
+        Product(name="Тональный кушон", category="Макияж", price=1590, old_price=1990,
                 image="https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=400",
-                description="Легкое покрытие", rating=4.6, reviews_count=145),
-        Product(name="Палетка теней", category="Макияж", price=890, old_price=1150,
-                image="https://images.unsplash.com/photo-1512496015851-a90fb38ba796?w=400",
-                description="12 оттенков", rating=4.5, reviews_count=198),
+                description="Лёгкое покрытие", rating=4.5, reviews_count=89),
+        Product(name="Палетка теней", category="Макияж", price=1290, old_price=1590,
+                image="https://images.unsplash.com/photo-1596704017254-9b121068fb31?w=400",
+                description="12 оттенков нюд", rating=4.9, reviews_count=178),
         Product(name="Гель для бровей", category="Макияж", price=450, old_price=590,
-                image="https://images.unsplash.com/photo-1522337660859-02fbefca4702?w=400",
-                description="Фиксация на весь день", rating=4.3, reviews_count=76),
-        Product(name="Хайлайтер", category="Макияж", price=680, old_price=890,
-                image="https://images.unsplash.com/photo-1599305090598-fe179d501227?w=400",
-                description="Сияние кожи", rating=4.7, reviews_count=134),
-        Product(name="Шампунь для волос", category="Уход за волосами", price=750, old_price=980,
-                image="https://images.unsplash.com/photo-1556228720-195a672e8a03?w=400",
-                description="Восстановление и блеск", rating=4.6, reviews_count=167),
-        Product(name="Маска для волос", category="Уход за волосами", price=890, old_price=1150,
+                image="https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=400",
+                description="Фиксация и объём", rating=4.6, reviews_count=134),
+        Product(name="Хайлайтер", category="Макияж", price=790, old_price=990,
+                image="https://images.unsplash.com/photo-1596704017254-9b121068fb31?w=400",
+                description="Сияние кожи", rating=4.8, reviews_count=167),
+        Product(name="Восстанавливающий шампунь", category="Уход за волосами", price=890, old_price=1100,
                 image="https://images.unsplash.com/photo-1527799820374-dcf8d9d4a388?w=400",
-                description="Глубокое питание", rating=4.8, reviews_count=89),
-        Product(name="Масло для волос", category="Уход за волосами", price=650, old_price=850,
+                description="Для сухих волос", rating=4.6, reviews_count=134),
+        Product(name="Маска для волос", category="Уход за волосами", price=1150, old_price=1390,
+                image="https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400",
+                description="Глубокое питание", rating=4.8, reviews_count=98),
+        Product(name="Масло для волос", category="Уход за волосами", price=690, old_price=850,
                 image="https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=400",
-                description="Блеск и мягкость", rating=4.5, reviews_count=112),
-        Product(name="Термозащита для волос", category="Уход за волосами", price=580, old_price=750,
+                description="Блеск и защита кончиков", rating=4.5, reviews_count=67),
+        Product(name="Термозащитный спрей", category="Уход за волосами", price=550, old_price=720,
                 image="https://images.unsplash.com/photo-1527799820374-dcf8d9d4a388?w=400",
-                description="Защита от горячих инструментов", rating=4.4, reviews_count=78),
-        Product(name="Floral Eau de Parfum", category="Парфюмерия", price=2500, old_price=3200,
+                description="Защита при укладке", rating=4.4, reviews_count=89),
+        Product(name="Парфюм Floral", category="Парфюмерия", price=3490, old_price=4200,
                 image="https://images.unsplash.com/photo-1541643600914-78b084683601?w=400",
                 description="Нежный цветочный аромат", rating=4.9, reviews_count=245),
-        Product(name="Woody Eau de Parfum", category="Парфюмерия", price=2800, old_price=3500,
+        Product(name="Парфюм Woody", category="Парфюмерия", price=4290, old_price=5200,
                 image="https://images.unsplash.com/photo-1594035910387-fea47794261f?w=400",
-                description="Теплый древесный аромат", rating=4.7, reviews_count=189),
-        Product(name="Fresh Eau de Toilette", category="Парфюмерия", price=1900, old_price=2400,
-                image="https://images.unsplash.com/photo-1587017539504-67cfbddac569?w=400",
-                description="Свежий и легкий", rating=4.6, reviews_count=156),
-        Product(name="Масляные духи", category="Парфюмерия", price=1500, old_price=1900,
-                image="https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?w=400",
-                description="Стойкий аромат", rating=4.8, reviews_count=98),
-        Product(name="Скраб для тела", category="Уход за телом", price=550, old_price=720,
-                image="https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=400",
-                description="Мягкий пилинг", rating=4.5, reviews_count=134),
-        Product(name="Крем для рук", category="Уход за телом", price=320, old_price=420,
+                description="Древесные ноты", rating=4.8, reviews_count=189),
+        Product(name="Туалетная вода Fresh", category="Парфюмерия", price=2590, old_price=3100,
                 image="https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=400",
-                description="Увлажнение и питание", rating=4.4, reviews_count=201),
-        Product(name="Гель для душа", category="Уход за телом", price=480, old_price=620,
+                description="Свежий цитрусовый аромат", rating=4.7, reviews_count=156),
+        Product(name="Масляные духи", category="Парфюмерия", price=1890, old_price=2400,
+                image="https://images.unsplash.com/photo-1541643600914-78b084683601?w=400",
+                description="Стойкий восточный аромат", rating=4.8, reviews_count=112),
+        Product(name="Скраб для тела", category="Уход за телом", price=690, old_price=850,
                 image="https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=400",
-                description="Освежающий аромат", rating=4.6, reviews_count=167),
-        Product(name="Масло для тела", category="Уход за телом", price=890, old_price=1150,
+                description="Кофейный скраб", rating=4.6, reviews_count=112),
+        Product(name="Крем для рук", category="Уход за телом", price=450, old_price=550,
+                image="https://images.unsplash.com/photo-1596755389378-c31d21fd1273?w=400",
+                description="Питательный крем", rating=4.5, reviews_count=89),
+        Product(name="Гель для душа", category="Уход за телом", price=590, old_price=720,
                 image="https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=400",
-                description="Глубокое увлажнение", rating=4.7, reviews_count=89),
-        Product(name="Дезодорант", category="Уход за телом", price=350, old_price=450,
-                image="https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=400",
-                description="48 часов защиты", rating=4.3, reviews_count=145),
+                description="Увлажнение и аромат", rating=4.7, reviews_count=134),
+        Product(name="Масло для тела", category="Уход за телом", price=790, old_price=950,
+                image="https://images.unsplash.com/photo-1601049541289-9b1b7bbbfe19?w=400",
+                description="Питание после душа", rating=4.8, reviews_count=78),
+        Product(name="Дезодорант спрей", category="Уход за телом", price=350, old_price=450,
+                image="https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=400",
+                description="48 часов защиты", rating=4.4, reviews_count=198),
     ]
+
     for p in products:
         session.add(p)
     await session.commit()
