@@ -377,12 +377,13 @@ function switchTab(tab) {
 
 function getDeliveryCost() {
   const m = document.querySelector('input[name="delivery"]:checked');
-  return m ? { courier: 300, sdek: 250, post: 200 }[m.value] || 0 : 0;
+  return m ? { courier: 300, sdek: 250, ozon: 199 }[m.value] || 0 : 0;
 }
 
 function getDeliveryLabel() {
   const m = document.querySelector('input[name="delivery"]:checked');
-  return m ? { courier: 'Курьер по Махачкале', sdek: 'СДЭК (по России)', post: 'Почта России' }[m.value] || 'Доставка' : 'Доставка';
+  if (m && m.value === 'ozon') return 'Ozon Доставка';
+  return m ? { courier: 'Курьер по Махачкале', sdek: 'СДЭК (по России)' }[m.value] || 'Доставка' : 'Доставка';
 }
 
 function updateDelivery() {
@@ -398,6 +399,11 @@ function updateDelivery() {
   const label = document.getElementById('deliveryAddressLabel');
   if (!addr || !label) return;
   const method = checked ? checked.value : 'courier';
+  if (method === 'ozon') {
+    addr.placeholder = 'Город, адрес или номер пункта выдачи Ozon';
+    label.innerText = 'Пункт выдачи Ozon';
+    return;
+  }
   if (method === 'courier') {
     addr.placeholder = 'Улица, дом, квартира (Махачкала)';
     label.innerText = 'Адрес доставки (Махачкала)';
@@ -446,7 +452,7 @@ function renderCartPage() {
   html += '<div class="delivery-title">🚚 Способ доставки</div>';
   html += '<label class="delivery-option active"><input type="radio" name="delivery" value="courier" checked onchange="updateDelivery()"><div class="delivery-info"><div class="delivery-name">Курьер по Махачкале</div><div class="delivery-desc">Доставка 1–2 часа</div></div><div class="delivery-price">300 ₽</div></label>';
   html += '<label class="delivery-option"><input type="radio" name="delivery" value="sdek" onchange="updateDelivery()"><div class="delivery-info"><div class="delivery-name">СДЭК (по России)</div><div class="delivery-desc">Пункт выдачи или курьер, 3–5 дней</div></div><div class="delivery-price">250 ₽</div></label>';
-  html += '<label class="delivery-option"><input type="radio" name="delivery" value="post" onchange="updateDelivery()"><div class="delivery-info"><div class="delivery-name">Почта России</div><div class="delivery-desc">До отделения, 5–7 дней</div></div><div class="delivery-price">200 ₽</div></label>';
+  html += '<label class="delivery-option"><input type="radio" name="delivery" value="ozon" onchange="updateDelivery()"><div class="delivery-info"><div class="delivery-name">Ozon Доставка</div><div class="delivery-desc">Пункт выдачи, 2–5 дней</div></div><div class="delivery-price">199 ₽</div></label>';
   html += '</div>';
   html += '<div class="checkout-form">';
   html += '<div class="form-group"><label id="deliveryAddressLabel">Адрес доставки (Махачкала)</label><input type="text" id="addressInput" placeholder="Улица, дом, квартира (Махачкала)"></div>';
@@ -525,7 +531,7 @@ async function renderOrdersPage() {
     }
     const statusMap = { pending: 'Ожидает', processing: 'В обработке', shipped: 'Отправлен', delivered: 'Доставлен', cancelled: 'Отменён', received: 'Получен' };
     const cssMap = { pending: 'status-pending', processing: 'status-processing', shipped: 'status-shipped', delivered: 'status-delivered', cancelled: 'status-cancelled', received: 'status-received' };
-    const deliveryLabelMap = { courier: 'Курьер по Махачкале', sdek: 'СДЭК', post: 'Почта России' };
+    const deliveryLabelMap = { courier: 'Курьер по Махачкале', sdek: 'СДЭК', ozon: 'Ozon Доставка' };
     let html = '<h2 class="section-title">Мои заказы</h2>';
     orders.forEach(o => {
       html += '<div class="order-card">';
@@ -665,7 +671,7 @@ updateBadges();
       const statusMap = { pending: 'Ожидает', processing: 'В обработке', shipped: 'Отправлен', delivered: 'Доставлен', cancelled: 'Отменён', received: 'Получен' };
       const statusColors = { pending: '#856404', processing: '#0C5460', shipped: '#155724', delivered: '#155724', cancelled: '#721C24', received: '#004085' };
       const statusBg = { pending: '#FFF3CD', processing: '#D1ECF1', shipped: '#D4EDDA', delivered: '#D4EDDA', cancelled: '#F8D7DA', received: '#CCE5FF' };
-      const deliveryLabelMap = { courier: 'Курьер Махачкала', sdek: 'СДЭК', post: 'Почта России' };
+      const deliveryLabelMap = { courier: 'Курьер Махачкала', sdek: 'СДЭК', ozon: 'Ozon Доставка' };
       if (!orders || !orders.length)
         return '<div class="page"><h2 class="section-title">Заказы</h2><div class="empty-state"><h3>Нет заказов</h3></div></div>';
       let html = '<div class="page">';
