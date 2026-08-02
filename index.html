@@ -205,7 +205,13 @@ let promoDiscount = 0;
 let currentCategory = 'all';
 let searchQuery = '';
 
+function telegramAuthHeaders() {
+  return tg.initData ? { 'X-Telegram-Init-Data': tg.initData } : {};
+}
+
 async function api(path, opts) {
+  opts = opts || {};
+  opts.headers = Object.assign({}, telegramAuthHeaders(), opts.headers || {});
   const res = await fetch(API_BASE + '/api/v1' + path, opts);
   if (!res.ok) throw new Error('HTTP ' + res.status);
   return await res.json();
@@ -628,7 +634,6 @@ updateBadges();
 <script>
 // ===== ADMIN PANEL =====
 (function () {
-  const ADMIN_KEY = "admin123";
   const SELLER_IDS = ["7890854793", "940063562"];
 
   function getUserId() {
@@ -721,14 +726,7 @@ updateBadges();
       const btn = document.getElementById('adminLoginBtn');
       if (btn) {
         btn.onclick = function () {
-          const key = document.getElementById('adminKeyInput').value.trim();
-          if (key === ADMIN_KEY) {
-            localStorage.setItem('mk_admin', 'true');
-            Admin.showOrders();
-          } else {
-            const err = document.getElementById('adminError');
-            if (err) err.style.display = 'block';
-          }
+          Admin.showOrders();
         };
       }
     },
@@ -754,7 +752,7 @@ updateBadges();
     },
 
     loadOrders: function () {
-      fetch(API_BASE + '/api/v1/admin/orders', { headers: { 'X-Seller-Key': ADMIN_KEY } })
+      fetch(API_BASE + '/api/v1/admin/orders', { headers: telegramAuthHeaders() })
         .then(function (res) { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
         .then(function (orders) {
           const main = document.getElementById('mainContent');
@@ -771,7 +769,7 @@ updateBadges();
     updateStatus: function (orderId, status) {
       fetch(API_BASE + '/api/v1/orders/' + orderId + '/status', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'X-Seller-Key': ADMIN_KEY },
+        headers: Object.assign({ 'Content-Type': 'application/json' }, telegramAuthHeaders()),
         body: JSON.stringify({ status: status })
       })
         .then(function (res) { if (res.ok) { Admin.loadOrders(); } else { tg.showAlert('Ошибка обновления статуса'); } })
@@ -783,7 +781,7 @@ updateBadges();
       if (track === null) return;
       fetch(API_BASE + '/api/v1/orders/' + orderId + '/track', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'X-Seller-Key': ADMIN_KEY },
+        headers: Object.assign({ 'Content-Type': 'application/json' }, telegramAuthHeaders()),
         body: JSON.stringify({ track_number: track || '' })
       })
         .then(function (res) { if (res.ok) { Admin.loadOrders(); } else { tg.showAlert('Ошибка обновления трека'); } })
